@@ -1,0 +1,134 @@
+.patient-login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: linear-gradient(135deg, #f3faf4, #ffffff);
+  font-family: Arial, sans-serif;
+}
+
+.patient-login-card {
+  width: 100%;
+  max-width: 460px;
+  padding: 32px;
+  background: #ffffff;
+  border: 1px solid #dceee0;
+  border-radius: 22px;
+  box-shadow: 0 12px 40px rgba(17, 85, 48, 0.09);
+}
+
+.patient-back-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: #176540;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.patient-login-logo {
+  display: block;
+  width: 190px;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto 22px;
+}
+
+.patient-login-icon {
+  width: 55px;
+  height: 55px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px;
+  border-radius: 15px;
+  background: #e8f5eb;
+  color: #087443;
+}
+
+.patient-login-card h1 {
+  margin: 0 0 10px;
+  text-align: center;
+  font-size: 25px;
+  color: #12452d;
+}
+
+.patient-login-subtitle {
+  margin: 0 0 25px;
+  text-align: center;
+  color: #68776e;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.patient-login-card form {
+  display: flex;
+  flex-direction: column;
+}
+
+.patient-login-card label {
+  margin: 0 0 8px;
+  color: #254c36;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.patient-login-card input {
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 19px;
+  padding: 13px 14px;
+  border: 1px solid #d6e3da;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #263b2e;
+  font-size: 15px;
+  outline: none;
+}
+
+.patient-login-card input:focus {
+  border-color: #16844e;
+  box-shadow: 0 0 0 3px rgba(22, 132, 78, 0.1);
+}
+
+.patient-login-continue {
+  width: 100%;
+  margin-top: 4px;
+  padding: 14px;
+  border: none;
+  border-radius: 10px;
+  background: #087443;
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.patient-login-continue:hover {
+  background: #065d35;
+}
+
+.patient-login-error {
+  margin: 0 0 15px;
+  color: #c62828;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.patient-login-footer {
+  margin: 23px 0 0;
+  text-align: center;
+  color: #8a968e;
+  font-size: 12px;
+}
+
+@media (max-width: 480px) {
+  .patient-login-card {
+    padding: 24px 20px;
+  }
+}

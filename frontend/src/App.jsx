@@ -8,8 +8,8 @@ import {
   Eye,
   EyeOff,
   Mail,
-  Phone,
   Hospital,
+  Languages,
 } from "lucide-react";
 
 import HospitalDashboard from "./HospitalDashboard";
@@ -19,9 +19,9 @@ import LoginSelectionPage from "./LoginSelectionPage";
 
 import "./App.css";
 
-/* =========================================
+/* =========================
    CARELEKHA LOGO
-========================================= */
+========================= */
 
 function CareLekhaLogo() {
   return (
@@ -35,35 +35,9 @@ function CareLekhaLogo() {
   );
 }
 
-/* =========================================
-   PATIENT-FACING MALAYALAM TEXT
-========================================= */
-
-const patientText = {
-  fullName: "പൂർണ്ണ പേര്",
-  email: "ഇമെയിൽ വിലാസം",
-  phone: "മൊബൈൽ നമ്പർ",
-  password: "പാസ്‌വേഡ്",
-  confirmPassword: "പാസ്‌വേഡ് സ്ഥിരീകരിക്കുക",
-  enterName: "നിങ്ങളുടെ പേര് നൽകുക",
-  enterEmail: "ഇമെയിൽ വിലാസം നൽകുക",
-  enterPhone: "മൊബൈൽ നമ്പർ നൽകുക",
-  enterPassword: "പാസ്‌വേഡ് നൽകുക",
-  enterConfirmPassword: "പാസ്‌വേഡ് വീണ്ടും നൽകുക",
-  login: "ലോഗിൻ ചെയ്യുക",
-  signup: "അക്കൗണ്ട് സൃഷ്ടിക്കുക",
-  back: "തിരികെ",
-  noAccount: "അക്കൗണ്ട് ഇല്ലേ?",
-  haveAccount: "ഇതിനകം അക്കൗണ്ട് ഉണ്ടോ?",
-  required: "ആവശ്യമായ എല്ലാ വിവരങ്ങളും നൽകുക.",
-  invalidPhone: "ശരിയായ 10 അക്ക മൊബൈൽ നമ്പർ നൽകുക.",
-  invalidEmail: "ശരിയായ ഇമെയിൽ വിലാസം നൽകുക.",
-  passwordMismatch: "പാസ്‌വേഡുകൾ തമ്മിൽ പൊരുത്തപ്പെടുന്നില്ല.",
-};
-
-/* =========================================
+/* =========================
    WELCOME PAGE
-========================================= */
+========================= */
 
 function WelcomePage({ onGetStarted }) {
   return (
@@ -86,18 +60,19 @@ function WelcomePage({ onGetStarted }) {
           <span> easier to understand.</span>
         </h1>
 
-        <p>
+        <p className="welcome-description">
           CareLekha helps patients understand prescriptions,
           medicine instructions, and discharge summaries
-          in Malayalam.
+          in their preferred language.
         </p>
 
         <button
-          className="welcome-button"
           type="button"
+          className="welcome-button"
           onClick={onGetStarted}
         >
-          Get Started <ArrowRight size={20} />
+          Get Started
+          <ArrowRight size={20} />
         </button>
 
         <div className="welcome-trust">
@@ -109,35 +84,129 @@ function WelcomePage({ onGetStarted }) {
   );
 }
 
-/* =========================================
-   LOGIN AND SIGN-UP PAGE
-   Hospital interface: English
-   Patient interface: Malayalam
-========================================= */
+/* =========================
+   LANGUAGE SELECTION PAGE
+========================= */
 
-function AuthPage({
+function LanguageSelectionPage({
+  selectedLanguage,
+  onContinue,
   onBack,
-  onLoginSuccess,
-  selectedRole,
 }) {
-  const isHospital = selectedRole === "hospital";
+  const [language, setLanguage] = useState(selectedLanguage);
 
-  const [mode, setMode] = useState("login");
+  return (
+    <main className="language-page">
+      <section className="language-card">
+        <button
+          type="button"
+          className="language-back-button"
+          onClick={onBack}
+        >
+          <ArrowLeft size={18} />
+          <span>Back</span>
+        </button>
+
+        <CareLekhaLogo />
+
+        <div className="language-icon">
+          <Languages size={30} />
+        </div>
+
+        <p className="language-eyebrow">
+          PERSONALISE YOUR EXPERIENCE
+        </p>
+
+        <h1>Choose Your Language</h1>
+
+        <p className="language-description">
+          Select your preferred language to continue.
+        </p>
+
+        <div className="language-options">
+          <button
+            type="button"
+            className={`language-option ${
+              language === "English" ? "selected" : ""
+            }`}
+            onClick={() => setLanguage("English")}
+            aria-pressed={language === "English"}
+          >
+            <span className="language-option-symbol">
+              EN
+            </span>
+
+            <span className="language-option-text">
+              <strong>English</strong>
+              <small>Continue in English</small>
+            </span>
+
+            <span className="language-check">
+              {language === "English" ? "✓" : ""}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            className={`language-option ${
+              language === "Malayalam" ? "selected" : ""
+            }`}
+            onClick={() => setLanguage("Malayalam")}
+            aria-pressed={language === "Malayalam"}
+          >
+            <span className="language-option-symbol malayalam-symbol">
+              അ
+            </span>
+
+            <span className="language-option-text">
+              <strong>മലയാളം</strong>
+              <small>മലയാളത്തിൽ തുടരുക</small>
+            </span>
+
+            <span className="language-check">
+              {language === "Malayalam" ? "✓" : ""}
+            </span>
+          </button>
+        </div>
+
+        <button
+          type="button"
+          className="language-continue-button"
+          onClick={() => onContinue(language)}
+        >
+          Continue
+          <ArrowRight size={19} />
+        </button>
+
+        <div className="language-note">
+          <ShieldCheck size={16} />
+          <span>
+            Your healthcare journey, your language.
+          </span>
+        </div>
+
+        <small className="language-footer">
+          CareLekha · Clear Medicines. Safer Tomorrows.
+        </small>
+      </section>
+    </main>
+  );
+}
+
+/* =========================
+   HOSPITAL ADMIN LOGIN
+========================= */
+
+function HospitalAdminLogin({ onBack, onLoginSuccess }) {
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] =
-    useState(false);
   const [error, setError] = useState("");
 
   const [formData, setFormData] = useState({
-    fullName: "",
     hospitalName: "",
+    adminId: "",
     email: "",
-    phone: "",
     password: "",
-    confirmPassword: "",
   });
-
-  const isSignup = mode === "signup";
 
   function updateField(event) {
     const { name, value } = event.target;
@@ -150,118 +219,56 @@ function AuthPage({
     setError("");
   }
 
-  function text(malayalam, english) {
-    return isHospital ? english : malayalam;
-  }
-
   function handleSubmit(event) {
     event.preventDefault();
     setError("");
 
-    if (!formData.fullName.trim() || !formData.password) {
-      setError(
-        text(
-          patientText.required,
-          "Please complete all required fields."
-        )
-      );
+    if (
+      !formData.hospitalName.trim() ||
+      !formData.adminId.trim() ||
+      !formData.email.trim() ||
+      !formData.password
+    ) {
+      setError("Please fill in all required fields.");
       return;
     }
 
-    if (isHospital && !formData.hospitalName.trim()) {
-      setError("Please enter your hospital name.");
+    if (
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+        formData.email.trim()
+      )
+    ) {
+      setError("Please enter a valid email address.");
       return;
     }
 
-    if (!/^[6-9]\d{9}$/.test(formData.phone.trim())) {
-      setError(
-        text(
-          patientText.invalidPhone,
-          "Enter a valid 10-digit mobile number."
-        )
-      );
-      return;
-    }
-
-    if (isSignup) {
-      if (!formData.email.trim()) {
-        setError(
-          text(
-            patientText.required,
-            "Please enter your email address."
-          )
-        );
-        return;
-      }
-
-      if (
-        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
-          formData.email.trim()
-        )
-      ) {
-        setError(
-          text(
-            patientText.invalidEmail,
-            "Please enter a valid email address."
-          )
-        );
-        return;
-      }
-
-      if (formData.password !== formData.confirmPassword) {
-        setError(
-          text(
-            patientText.passwordMismatch,
-            "Passwords do not match."
-          )
-        );
-        return;
-      }
-    }
-
-    /*
-      FRONTEND DEMO ONLY.
-
-      This creates a local profile and does not authenticate
-      against a real hospital or patient account.
-
-      Passwords are not stored in localStorage.
-    */
-
-    const profile = {
-      name: formData.fullName.trim(),
+    // Frontend demo login.
+    // Connect a backend for real authentication.
+    const hospitalProfile = {
+      name: formData.hospitalName.trim(),
+      hospitalName: formData.hospitalName.trim(),
+      adminId: formData.adminId.trim(),
       email: formData.email.trim(),
-      phone: formData.phone.trim(),
-      role: selectedRole,
-      hospitalName: isHospital
-        ? formData.hospitalName.trim()
-        : "",
+      role: "hospital",
     };
 
     try {
       localStorage.setItem(
         "carelekha-profile",
-        JSON.stringify(profile)
+        JSON.stringify(hospitalProfile)
       );
-    } catch {
-      setError(
-        text(
-          "പ്രൊഫൈൽ സംരക്ഷിക്കാൻ കഴിഞ്ഞില്ല.",
-          "Unable to save your demo profile."
-        )
+    } catch (storageError) {
+      console.error(
+        "Could not save hospital profile:",
+        storageError
       );
-      return;
     }
 
-    onLoginSuccess(profile);
+    onLoginSuccess(hospitalProfile);
   }
 
   return (
-    <main className="welcome-page">
-      <header className="welcome-header">
-        <CareLekhaLogo />
-      </header>
-
+    <main className="auth-page">
       <section className="auth-card">
         <button
           type="button"
@@ -269,371 +276,266 @@ function AuthPage({
           onClick={onBack}
         >
           <ArrowLeft size={18} />
-          {text(patientText.back, "Back")}
+          <span>Back</span>
         </button>
 
-        <div className="auth-icon">
-          {isHospital ? (
+        <CareLekhaLogo />
+
+        <div className="auth-heading">
+          <div className="auth-icon">
             <Hospital size={30} />
-          ) : (
-            <User size={30} />
-          )}
+          </div>
+
+          <p className="auth-eyebrow">
+            HOSPITAL PORTAL
+          </p>
+
+          <h1>Hospital Admin Login</h1>
+
+          <p>
+            Sign in to access your hospital dashboard.
+          </p>
         </div>
 
-        <h1>
-          {isHospital
-            ? isSignup
-              ? "Create Hospital Account"
-              : "Hospital Admin Login"
-            : isSignup
-              ? "അക്കൗണ്ട് സൃഷ്ടിക്കുക"
-              : "തിരികെ സ്വാഗതം"}
-        </h1>
+        <form onSubmit={handleSubmit}>
+          <div className="auth-field">
+            <label htmlFor="hospitalName">
+              Hospital Name
+            </label>
 
-        <p className="auth-description">
-          {isHospital
-            ? "Manage patient records, prescriptions, and discharge summaries."
-            : isSignup
-              ? "തുടങ്ങാൻ നിങ്ങളുടെ അക്കൗണ്ട് സൃഷ്ടിക്കുക."
-              : "തുടരാൻ നിങ്ങളുടെ വിവരങ്ങൾ നൽകുക."}
-        </p>
+            <div className="auth-input-wrap">
+              <Hospital size={19} />
 
-        <div className="auth-tabs">
-          <button
-            type="button"
-            className={mode === "login" ? "active" : ""}
-            onClick={() => {
-              setMode("login");
-              setError("");
-            }}
-          >
-            {text(patientText.login, "Login")}
-          </button>
-
-          <button
-            type="button"
-            className={mode === "signup" ? "active" : ""}
-            onClick={() => {
-              setMode("signup");
-              setError("");
-            }}
-          >
-            {text(patientText.signup, "Sign Up")}
-          </button>
-        </div>
-
-        <form className="auth-form" onSubmit={handleSubmit}>
-          {isHospital && (
-            <>
-              <label htmlFor="hospitalName">Hospital Name</label>
-
-              <div className="auth-input-wrap">
-                <Hospital size={18} />
-
-                <input
-                  id="hospitalName"
-                  name="hospitalName"
-                  type="text"
-                  placeholder="Enter hospital name"
-                  value={formData.hospitalName}
-                  onChange={updateField}
-                  autoComplete="organization"
-                  required
-                />
-              </div>
-            </>
-          )}
-
-          <label htmlFor="fullName">
-            {text(patientText.fullName, "Admin Name")}
-          </label>
-
-          <div className="auth-input-wrap">
-            <User size={18} />
-
-            <input
-              id="fullName"
-              name="fullName"
-              type="text"
-              placeholder={text(
-                patientText.enterName,
-                "Enter your name"
-              )}
-              value={formData.fullName}
-              onChange={updateField}
-              autoComplete="name"
-              required
-            />
+              <input
+                id="hospitalName"
+                name="hospitalName"
+                type="text"
+                placeholder="Enter hospital name"
+                value={formData.hospitalName}
+                onChange={updateField}
+                autoComplete="organization"
+                required
+              />
+            </div>
           </div>
 
-          {isSignup && (
-            <>
-              <label htmlFor="email">
-                {text(patientText.email, "Email Address")}
-              </label>
+          <div className="auth-field">
+            <label htmlFor="adminId">
+              Hospital Admin ID
+            </label>
 
-              <div className="auth-input-wrap">
-                <Mail size={18} />
+            <div className="auth-input-wrap">
+              <User size={19} />
 
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  placeholder={text(
-                    patientText.enterEmail,
-                    "Enter your email address"
-                  )}
-                  value={formData.email}
-                  onChange={updateField}
-                  autoComplete="email"
-                  required
-                />
-              </div>
-            </>
-          )}
-
-          <label htmlFor="phone">
-            {text(patientText.phone, "Mobile Number")}
-          </label>
-
-          <div className="auth-input-wrap">
-            <Phone size={18} />
-
-            <span className="auth-country-code">+91</span>
-
-            <input
-              id="phone"
-              name="phone"
-              type="tel"
-              inputMode="numeric"
-              placeholder={text(
-                patientText.enterPhone,
-                "Enter 10-digit mobile number"
-              )}
-              value={formData.phone}
-              onChange={updateField}
-              maxLength={10}
-              autoComplete="tel-national"
-              required
-            />
+              <input
+                id="adminId"
+                name="adminId"
+                type="text"
+                placeholder="Enter admin ID"
+                value={formData.adminId}
+                onChange={updateField}
+                autoComplete="username"
+                required
+              />
+            </div>
           </div>
 
-          <label htmlFor="password">
-            {text(patientText.password, "Password")}
-          </label>
+          <div className="auth-field">
+            <label htmlFor="email">
+              Email Address
+            </label>
 
-          <div className="auth-input-wrap">
-            <LockKeyhole size={18} />
+            <div className="auth-input-wrap">
+              <Mail size={19} />
 
-            <input
-              id="password"
-              name="password"
-              type={showPassword ? "text" : "password"}
-              placeholder={text(
-                patientText.enterPassword,
-                "Enter your password"
-              )}
-              value={formData.password}
-              onChange={updateField}
-              autoComplete={
-                isSignup ? "new-password" : "current-password"
-              }
-              required
-            />
-
-            <button
-              className="auth-eye-button"
-              type="button"
-              onClick={() =>
-                setShowPassword((value) => !value)
-              }
-              aria-label={
-                showPassword ? "Hide password" : "Show password"
-              }
-            >
-              {showPassword ? (
-                <EyeOff size={18} />
-              ) : (
-                <Eye size={18} />
-              )}
-            </button>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                placeholder="Enter email address"
+                value={formData.email}
+                onChange={updateField}
+                autoComplete="email"
+                required
+              />
+            </div>
           </div>
 
-          {isSignup && (
-            <>
-              <label htmlFor="confirmPassword">
-                {text(
-                  patientText.confirmPassword,
-                  "Confirm Password"
+          <div className="auth-field">
+            <label htmlFor="password">
+              Password
+            </label>
+
+            <div className="auth-input-wrap">
+              <LockKeyhole size={19} />
+
+              <input
+                id="password"
+                name="password"
+                type={showPassword ? "text" : "password"}
+                placeholder="Enter password"
+                value={formData.password}
+                onChange={updateField}
+                autoComplete="current-password"
+                required
+              />
+
+              <button
+                type="button"
+                className="auth-eye-button"
+                onClick={() =>
+                  setShowPassword((previous) => !previous)
+                }
+                aria-label={
+                  showPassword
+                    ? "Hide password"
+                    : "Show password"
+                }
+              >
+                {showPassword ? (
+                  <EyeOff size={19} />
+                ) : (
+                  <Eye size={19} />
                 )}
-              </label>
-
-              <div className="auth-input-wrap">
-                <LockKeyhole size={18} />
-
-                <input
-                  id="confirmPassword"
-                  name="confirmPassword"
-                  type={
-                    showConfirmPassword ? "text" : "password"
-                  }
-                  placeholder={text(
-                    patientText.enterConfirmPassword,
-                    "Confirm your password"
-                  )}
-                  value={formData.confirmPassword}
-                  onChange={updateField}
-                  autoComplete="new-password"
-                  required
-                />
-
-                <button
-                  className="auth-eye-button"
-                  type="button"
-                  onClick={() =>
-                    setShowConfirmPassword((value) => !value)
-                  }
-                  aria-label={
-                    showConfirmPassword
-                      ? "Hide confirm password"
-                      : "Show confirm password"
-                  }
-                >
-                  {showConfirmPassword ? (
-                    <EyeOff size={18} />
-                  ) : (
-                    <Eye size={18} />
-                  )}
-                </button>
-              </div>
-            </>
-          )}
-
-          {!isSignup && (
-            <button
-              type="button"
-              className="auth-forgot-button"
-              onClick={() =>
-                setError(
-                  text(
-                    "പാസ്‌വേഡ് വീണ്ടെടുക്കൽ ഡെമോയിൽ ലഭ്യമല്ല.",
-                    "Password recovery is not available in this demo."
-                  )
-                )
-              }
-            >
-              {text("പാസ്‌വേഡ് മറന്നോ?", "Forgot Password?")}
-            </button>
-          )}
+              </button>
+            </div>
+          </div>
 
           {error && (
-            <p className="auth-error" role="alert">
+            <div className="auth-error" role="alert">
               {error}
-            </p>
+            </div>
           )}
 
-          <button className="auth-submit-button" type="submit">
-            {isHospital
-              ? isSignup
-                ? "Create Hospital Account"
-                : "Sign In"
-              : isSignup
-                ? patientText.signup
-                : patientText.login}
-
-            <ArrowRight size={18} />
+          <button
+            type="submit"
+            className="auth-submit-button"
+          >
+            Login
+            <ArrowRight size={19} />
           </button>
         </form>
 
-        <p className="auth-switch">
-          {isSignup
-            ? text(patientText.haveAccount, "Already have an account?")
-            : text(patientText.noAccount, "Don't have an account?")}{" "}
-
-          <button
-            type="button"
-            onClick={() => {
-              setMode(isSignup ? "login" : "signup");
-              setError("");
-            }}
-          >
-            {isSignup
-              ? text(patientText.login, "Login")
-              : text(patientText.signup, "Sign Up")}
-          </button>
-        </p>
-
-        <p className="auth-security">
+        <p className="auth-security-note">
           <ShieldCheck size={17} />
-          {isHospital
-            ? "Frontend demonstration only"
-            : "ഇത് ഒരു ഡെമോ ലോഗിൻ സംവിധാനമാണ്."}
+          <span>
+            Secure access for hospital administrators.
+          </span>
         </p>
       </section>
     </main>
   );
 }
 
-/* =========================================
+/* =========================
    MAIN APPLICATION
-========================================= */
+========================= */
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState("welcome");
 
-  const [selectedRole, setSelectedRole] = useState("patient");
+  const [selectedRole, setSelectedRole] = useState(null);
 
-  const [profile, setProfile] = useState(() => {
-    try {
-      const savedProfile = localStorage.getItem("carelekha-profile");
+  const [selectedLanguage, setSelectedLanguage] =
+    useState("English");
 
-      return savedProfile ? JSON.parse(savedProfile) : null;
-    } catch {
-      return null;
-    }
-  });
+  const [profile, setProfile] = useState(null);
+
+  /* WELCOME -> ROLE SELECTION */
+
+  function handleGetStarted() {
+    setCurrentPage("role-selection");
+  }
+
+  /* ROLE SELECTION */
 
   function handleRoleSelection(role) {
     setSelectedRole(role);
-    setCurrentPage("login");
-  }
 
-  function handleLoginSuccess(userProfile) {
-    setProfile(userProfile);
-
-    if (selectedRole === "hospital") {
-      setCurrentPage("hospital-dashboard");
-    } else {
-      setCurrentPage("patient-details");
+    if (role === "patient") {
+      setSelectedLanguage("English");
+      setCurrentPage("language-selection");
+    } else if (role === "hospital") {
+      setSelectedLanguage("English");
+      setCurrentPage("hospital-login");
     }
   }
 
-  function handlePatientDetailsContinue() {
-    setCurrentPage("home");
+  /* LANGUAGE -> PATIENT DETAILS */
+
+  function handleLanguageContinue(language) {
+    setSelectedLanguage(language);
+    setCurrentPage("patient-details");
   }
+
+  /* PATIENT DETAILS -> PATIENT DASHBOARD */
+
+  function handlePatientDetailsContinue(patientDetails) {
+    const patientProfile = {
+      name:
+        patientDetails.name ||
+        patientDetails.patientName ||
+        "",
+      phone:
+        patientDetails.phone ||
+        patientDetails.patientPhone ||
+        "",
+      age: patientDetails.age,
+      role: "patient",
+    };
+
+    setProfile(patientProfile);
+
+    try {
+      localStorage.setItem(
+        "carelekha-profile",
+        JSON.stringify(patientProfile)
+      );
+    } catch (error) {
+      console.error(
+        "Could not save patient profile:",
+        error
+      );
+    }
+
+    setCurrentPage("patient-dashboard");
+  }
+
+  /* HOSPITAL LOGIN -> HOSPITAL DASHBOARD */
+
+  function handleHospitalLoginSuccess(hospitalProfile) {
+    setProfile(hospitalProfile);
+    setSelectedLanguage("English");
+    setCurrentPage("hospital-dashboard");
+  }
+
+  /* LOGOUT */
 
   function handleLogout() {
     setProfile(null);
+    setSelectedRole(null);
+    setSelectedLanguage("English");
 
     try {
       localStorage.removeItem("carelekha-profile");
     } catch (error) {
-      console.error("Unable to clear demo profile:", error);
+      console.error("Could not clear profile:", error);
     }
 
-    setSelectedRole("patient");
-    setCurrentPage("role-selection");
+    setCurrentPage("welcome");
   }
 
   return (
     <>
+      {/* 1. WELCOME */}
+
       {currentPage === "welcome" && (
         <WelcomePage
-          onGetStarted={() =>
-            setCurrentPage("role-selection")
-          }
+          onGetStarted={handleGetStarted}
         />
       )}
+
+      {/* 2. ROLE SELECTION */}
 
       {currentPage === "role-selection" && (
         <LoginSelectionPage
@@ -643,37 +545,63 @@ export default function App() {
           onPatientLogin={() =>
             handleRoleSelection("patient")
           }
-        />
-      )}
-
-      {currentPage === "login" && (
-        <AuthPage
-          key={selectedRole}
-          selectedRole={selectedRole}
           onBack={() =>
-            setCurrentPage("role-selection")
+            setCurrentPage("welcome")
           }
-          onLoginSuccess={handleLoginSuccess}
         />
       )}
 
-      {currentPage === "patient-details" &&
-        profile &&
+      {/* 3. PATIENT LANGUAGE SELECTION */}
+
+      {currentPage === "language-selection" &&
         selectedRole === "patient" && (
-          <PatientDetailsPage
-            profile={profile}
-            selectedLanguage="Malayalam"
-            onBack={() => setCurrentPage("login")}
-            onContinue={handlePatientDetailsContinue}
+          <LanguageSelectionPage
+            selectedLanguage={selectedLanguage}
+            onContinue={handleLanguageContinue}
+            onBack={() =>
+              setCurrentPage("role-selection")
+            }
           />
         )}
 
-      {currentPage === "home" &&
-        profile &&
+      {/* 4. HOSPITAL ADMIN LOGIN */}
+
+      {currentPage === "hospital-login" &&
+        selectedRole === "hospital" && (
+          <HospitalAdminLogin
+            onBack={() =>
+              setCurrentPage("role-selection")
+            }
+            onLoginSuccess={
+              handleHospitalLoginSuccess
+            }
+          />
+        )}
+
+      {/* 5. PATIENT DETAILS */}
+
+      {currentPage === "patient-details" &&
         selectedRole === "patient" && (
+          <PatientDetailsPage
+            profile={null}
+            selectedLanguage={selectedLanguage}
+            onBack={() =>
+              setCurrentPage("language-selection")
+            }
+            onContinue={
+              handlePatientDetailsContinue
+            }
+          />
+        )}
+
+      {/* 6. PATIENT DASHBOARD */}
+
+      {currentPage === "patient-dashboard" &&
+        selectedRole === "patient" &&
+        profile && (
           <HomePage
             profile={profile}
-            selectedLanguage="Malayalam"
+            selectedLanguage={selectedLanguage}
             onLogout={handleLogout}
             onEditPatientDetails={() =>
               setCurrentPage("patient-details")
@@ -681,9 +609,11 @@ export default function App() {
           />
         )}
 
+      {/* 7. HOSPITAL DASHBOARD */}
+
       {currentPage === "hospital-dashboard" &&
-        profile &&
-        selectedRole === "hospital" && (
+        selectedRole === "hospital" &&
+        profile && (
           <HospitalDashboard
             profile={profile}
             onLogout={handleLogout}

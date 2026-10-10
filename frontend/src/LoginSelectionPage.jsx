@@ -1,134 +1,112 @@
 import React from "react";
+
 import {
+  ArrowLeft,
+  ArrowRight,
   Hospital,
   UserRound,
-  ArrowRight,
+  ShieldCheck,
 } from "lucide-react";
 
 import "./LoginSelectionPage.css";
 
-const LoginSelectionPage = ({
+export default function LoginSelectionPage({
   onHospitalLogin,
   onPatientLogin,
-}) => {
+  onBack,
+}) {
   return (
-    <div className="login-selection-page">
+    <main className="login-selection-page">
+      <section className="login-selection-card">
 
-      {/* Header */}
-      <header className="login-selection-header">
-        <div className="login-brand">
+        {/* BACK BUTTON */}
 
-          {/* Green and Black CareLekha Logo */}
-          <img
-            src="/images/carelekha-logo.png"
-            alt="CareLekha Logo"
-            className="carelekha-logo"
-          />
+        <button
+          type="button"
+          className="selection-back-button"
+          onClick={onBack}
+        >
+          <ArrowLeft size={18} />
+          Back
+        </button>
 
-        
-          
+        {/* LOGO */}
+
+        <img
+          src="/images/carelekha-logo.png"
+          alt="CareLekha"
+          className="selection-logo"
+        />
+
+        {/* HEADING */}
+
+        <div className="selection-icon">
+          <ShieldCheck size={30} />
         </div>
-      </header>
 
-      {/* Main Content */}
-      <main className="login-selection-main">
+        <h1>Welcome to CareLekha</h1>
 
-        {/* Welcome Section */}
-        <section className="login-welcome">
-          <span className="login-eyebrow">
-            WELCOME TO CARELEKHA
-          </span>
+        <p className="selection-description">
+          Please select how you would like to continue.
+        </p>
 
-          <h2>
-            How would you like
-            <br />
-            to continue?
-          </h2>
+        {/* ROLE OPTIONS */}
 
-          <p>
-            Choose your account type to access your
-            personalized healthcare experience.
-          </p>
-        </section>
+        <div className="selection-options">
 
-        {/* Login Options */}
-        <section className="login-selection-cards">
+          {/* PATIENT */}
 
-          {/* Hospital Login Card */}
-          <article className="login-selection-card hospital-card">
-
-            <div className="login-card-icon hospital-icon">
-              <Hospital
-                size={34}
-                strokeWidth={1.8}
-              />
-            </div>
-
-            <span className="login-card-label">
-              FOR HEALTHCARE PROVIDERS
+          <button
+            type="button"
+            className="selection-option"
+            onClick={onPatientLogin}
+          >
+            <span className="selection-option-icon">
+              <UserRound size={28} />
             </span>
 
-            <h3>Hospital Login</h3>
+            <span className="selection-option-text">
+              <strong>Patient</strong>
 
-            <p>
-              Manage patient records, prescriptions,
-              and discharge instructions in one place.
-            </p>
-
-            <button
-              type="button"
-              className="login-selection-button hospital-button"
-              onClick={onHospitalLogin}
-            >
-              <span>Continue as Hospital</span>
-              <ArrowRight size={18} />
-            </button>
-
-          </article>
-
-          {/* Patient Login Card */}
-          <article className="login-selection-card patient-card">
-
-            <div className="login-card-icon patient-icon">
-              <UserRound
-                size={34}
-                strokeWidth={1.8}
-              />
-            </div>
-
-            <span className="login-card-label">
-              FOR PATIENTS
+              <small>
+                Understand prescriptions and medicine instructions.
+              </small>
             </span>
 
-            <h3>Patient Login</h3>
+            <ArrowRight size={20} />
+          </button>
 
-            <p>
-              Access your medical instructions and
-              understand your medicines more easily.
-            </p>
+          {/* HOSPITAL */}
 
-            <button
-              type="button"
-              className="login-selection-button patient-button"
-              onClick={onPatientLogin}
-            >
-              <span>Continue as Patient</span>
-              <ArrowRight size={18} />
-            </button>
+          <button
+            type="button"
+            className="selection-option"
+            onClick={onHospitalLogin}
+          >
+            <span className="selection-option-icon">
+              <Hospital size={28} />
+            </span>
 
-          </article>
+            <span className="selection-option-text">
+              <strong>Hospital</strong>
 
-        </section>
+              <small>
+                Access the hospital administration dashboard.
+              </small>
+            </span>
 
-        {/* Footer */}
-        <footer className="login-selection-footer">
-          <p>Clear Medicines. Safer Tomorrows.</p>
-        </footer>
+            <ArrowRight size={20} />
+          </button>
 
-      </main>
+        </div>
 
-    </div>
+        {/* FOOTER */}
+
+        <p className="selection-footer">
+          CareLekha · Clear Medicines. Safer Tomorrows.
+        </p>
+
+      </section>
+    </main>
   );
-};
-
-export default LoginSelectionPage;
+}
