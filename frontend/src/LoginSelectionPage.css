@@ -1,0 +1,385 @@
+/* =========================================
+   CARELEKHA LOGIN SELECTION PAGE
+========================================= */
+
+.login-selection-page {
+  min-height: 100vh;
+  width: 100%;
+
+  background: linear-gradient(
+    135deg,
+    #f5f7ff 0%,
+    #edf7ff 100%
+  );
+
+  font-family: Arial, Helvetica, sans-serif;
+  color: #172554;
+
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
+
+.login-selection-page *,
+.login-selection-page *::before,
+.login-selection-page *::after {
+  box-sizing: border-box;
+}
+
+/* =========================================
+   HEADER
+========================================= */
+
+.login-selection-header {
+  width: 100%;
+  padding: 24px 7%;
+
+  border-bottom: 1px solid rgba(113, 130, 190, 0.15);
+}
+
+.login-brand {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+/* IMPORTANT:
+   Only the green-and-black logo image is displayed.
+   No blue heart logo or additional logo icon.
+*/
+
+.login-selection-page .carelekha-logo {
+  display: block;
+
+  width: 130px;
+  height: 90px;
+
+  object-fit: contain;
+  object-position: center;
+
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+
+  padding: 0 !important;
+  margin: 0;
+
+  flex-shrink: 0;
+}
+
+/* Hide extra logo elements in the header */
+
+.login-selection-page .login-brand > svg,
+.login-selection-page .login-brand .logo-icon,
+.login-selection-page .login-brand .heart-logo {
+  display: none !important;
+}
+
+/* Brand Name */
+
+
+
+/* =========================================
+   MAIN SECTION
+========================================= */
+
+.login-selection-main {
+  width: 100%;
+  max-width: 1100px;
+
+  margin: 0 auto;
+  padding: 55px 24px 35px;
+}
+
+/* Welcome Heading */
+
+.login-welcome {
+  max-width: 650px;
+
+  margin: 0 auto 42px;
+  text-align: center;
+}
+
+.login-eyebrow {
+  display: inline-block;
+
+  margin-bottom: 18px;
+  padding: 9px 16px;
+
+  background: #ebe8ff;
+  color: #6554e8;
+
+  border-radius: 30px;
+
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1.4px;
+}
+
+.login-welcome h2 {
+  margin: 0 0 15px;
+
+  color: #172b70;
+
+  font-size: 42px;
+  line-height: 1.2;
+  letter-spacing: -1.3px;
+}
+
+.login-welcome > p {
+  margin: 0;
+
+  color: #64748b;
+
+  font-size: 15px;
+  line-height: 1.8;
+}
+
+/* =========================================
+   LOGIN CARDS
+========================================= */
+
+.login-selection-cards {
+  display: grid;
+
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 28px;
+
+  width: 100%;
+  max-width: 900px;
+
+  margin: 0 auto;
+}
+
+.login-selection-card {
+  min-width: 0;
+  padding: 35px;
+
+  background: rgba(255, 255, 255, 0.92);
+
+  border: 1px solid #e0e7ff;
+  border-radius: 24px;
+
+  box-shadow: 0 15px 40px rgba(39, 57, 115, 0.06);
+
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease,
+    border-color 0.25s ease;
+}
+
+.login-selection-card:hover {
+  transform: translateY(-5px);
+
+  border-color: #c7d2fe;
+
+  box-shadow: 0 22px 45px rgba(39, 57, 115, 0.12);
+}
+
+/* =========================================
+   CARD ICONS
+========================================= */
+
+.login-card-icon {
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  width: 72px;
+  height: 72px;
+
+  margin-bottom: 25px;
+
+  border-radius: 20px;
+}
+
+.hospital-icon {
+  background: #eeebff;
+  color: #6554e8;
+}
+
+.patient-icon {
+  background: #defaf3;
+  color: #0d9488;
+}
+
+/* =========================================
+   CARD TEXT
+========================================= */
+
+.login-card-label {
+  display: block;
+
+  margin-bottom: 12px;
+
+  color: #8290aa;
+
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+
+.login-selection-card h3 {
+  margin: 0 0 13px;
+
+  color: #172b70;
+
+  font-size: 25px;
+  font-weight: 750;
+}
+
+.login-selection-card > p {
+  min-height: 76px;
+
+  margin: 0 0 25px;
+
+  color: #64748b;
+
+  font-size: 14px;
+  line-height: 1.8;
+}
+
+/* =========================================
+   BUTTONS
+========================================= */
+
+.login-selection-button {
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+
+  width: 100%;
+  min-height: 50px;
+
+  padding: 14px 18px;
+
+  border: none;
+  border-radius: 12px;
+
+  color: #ffffff;
+
+  font-size: 14px;
+  font-weight: 700;
+
+  cursor: pointer;
+
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.login-selection-button:hover {
+  transform: translateY(-2px);
+}
+
+.hospital-button {
+  background: #6554e8;
+
+  box-shadow: 0 8px 18px rgba(101, 84, 232, 0.18);
+}
+
+.hospital-button:hover {
+  box-shadow: 0 12px 24px rgba(101, 84, 232, 0.28);
+}
+
+.patient-button {
+  background: #0d9488;
+
+  box-shadow: 0 8px 18px rgba(13, 148, 136, 0.16);
+}
+
+.patient-button:hover {
+  box-shadow: 0 12px 24px rgba(13, 148, 136, 0.25);
+}
+
+.login-selection-button:focus-visible {
+  outline: 3px solid #a5b4fc;
+  outline-offset: 4px;
+}
+
+/* =========================================
+   FOOTER
+========================================= */
+
+.login-selection-footer {
+  margin-top: 40px;
+  text-align: center;
+}
+
+.login-selection-footer p {
+  margin: 0;
+
+  color: #8794ad;
+
+  font-size: 12px;
+  letter-spacing: 0.4px;
+}
+
+/* =========================================
+   RESPONSIVE DESIGN
+========================================= */
+
+@media (max-width: 700px) {
+  .login-selection-header {
+    padding: 20px 5%;
+  }
+
+  .login-brand {
+    gap: 12px;
+  }
+
+  .login-selection-page .carelekha-logo {
+    width: 85px;
+    height: 65px;
+  }
+
+  .login-brand-text h1 {
+    font-size: 25px;
+  }
+
+  .login-brand-text p {
+    font-size: 11px;
+    line-height: 1.5;
+  }
+
+  .login-selection-main {
+    padding: 42px 18px 28px;
+  }
+
+  .login-welcome h2 {
+    font-size: 32px;
+  }
+
+  .login-welcome > p {
+    font-size: 13px;
+  }
+
+  .login-selection-cards {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .login-selection-card {
+    padding: 28px;
+  }
+
+  .login-selection-card > p {
+    min-height: auto;
+  }
+
+  .login-selection-footer {
+    margin-top: 30px;
+  }
+}
+
+/* Accessibility */
+
+@media (prefers-reduced-motion: reduce) {
+  .login-selection-card,
+  .login-selection-button {
+    transition: none;
+  }
+}

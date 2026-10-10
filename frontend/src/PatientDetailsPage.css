@@ -1,0 +1,852 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Malayalam:wght@400;500;600;700&display=swap");
+
+.patient-details-app {
+  --pd-green: #00845e;
+  --pd-dark-green: #006c4d;
+  --pd-light-green: #eaf9f2;
+  --pd-border: #dce5ed;
+  --pd-text: #18314b;
+  --pd-muted: #7a8ba4;
+
+  min-height: 100vh;
+  padding-bottom: 95px;
+  background: #f7f9fc;
+  color: var(--pd-text);
+  font-family: "Inter", "Noto Sans Malayalam", sans-serif;
+}
+
+.patient-details-app * {
+  box-sizing: border-box;
+}
+
+.patient-details-app button,
+.patient-details-app input,
+.patient-details-app textarea {
+  font: inherit;
+}
+
+.patient-details-app button {
+  cursor: pointer;
+}
+
+.patient-details-app a {
+  text-decoration: none;
+  color: inherit;
+}
+
+/* HEADER */
+
+.pd-header {
+  background: white;
+  border-bottom: 1px solid #e3eaf0;
+}
+
+.pd-header-inner {
+  width: min(1480px, calc(100% - 64px));
+  min-height: 110px;
+  margin: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 25px;
+}
+
+.pd-brand {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.pd-logo {
+  display: block;
+  width: 220px;
+  height: 75px;
+  object-fit: contain;
+}
+
+.pd-header-message {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 18px;
+  border: 1px solid #bcebd8;
+  border-radius: 30px;
+  background: #f1fbf6;
+  color: #08785b;
+  font-family: "Noto Sans Malayalam", sans-serif;
+  font-size: 13px;
+}
+
+.pd-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pd-language,
+.pd-emergency {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 45px;
+  padding: 10px 16px;
+  border-radius: 28px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.pd-language {
+  border: 1px solid var(--pd-border);
+  background: #f5f7fa;
+  font-family: "Noto Sans Malayalam", sans-serif;
+}
+
+.pd-emergency {
+  background: #ed1246;
+  color: white !important;
+  font-size: 15px;
+}
+
+/* MAIN */
+
+.pd-main {
+  width: min(1480px, calc(100% - 64px));
+  margin: 24px auto 30px;
+}
+
+/* PROGRESS */
+
+.pd-progress {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 7px;
+  padding: 9px;
+  margin-bottom: 23px;
+  border: 1px solid var(--pd-border);
+  border-radius: 19px;
+  background: white;
+}
+
+.pd-progress-step {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px 8px;
+  border-radius: 13px;
+  color: #425873;
+}
+
+.pd-step-icon {
+  width: 49px;
+  height: 49px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #edf2f6;
+}
+
+.pd-progress-step > div:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pd-progress-step strong {
+  font-family: "Noto Sans Malayalam", sans-serif;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.pd-progress-step span {
+  color: #72849c;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.pd-progress-step.active {
+  background: var(--pd-green);
+  color: white;
+}
+
+.pd-progress-step.active .pd-step-icon {
+  background: white;
+  color: var(--pd-green);
+}
+
+.pd-progress-step.active span {
+  color: white;
+}
+
+/* CONTENT GRID */
+
+.pd-content-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2.05fr) minmax(320px, 1fr);
+  gap: 20px;
+  align-items: stretch;
+}
+
+.pd-form-card,
+.pd-sidebar {
+  min-width: 0;
+  border: 1px solid var(--pd-border);
+  border-radius: 19px;
+  background: white;
+  box-shadow: 0 2px 8px rgba(26, 49, 73, 0.025);
+}
+
+.pd-form-card {
+  padding: 27px;
+}
+
+.pd-title-row {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 24px;
+}
+
+.pd-title-icon {
+  width: 59px;
+  height: 59px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: 16px;
+  background: #d9f9eb;
+  color: var(--pd-green);
+}
+
+.pd-title-row h1 {
+  margin: 0 0 5px;
+  font-family: "Noto Sans Malayalam", sans-serif;
+  font-size: 25px;
+  font-weight: 800;
+  line-height: 1.6;
+}
+
+.pd-title-row p {
+  margin: 0;
+  color: var(--pd-muted);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+/* ACCOUNT SUMMARY */
+
+.pd-account-summary {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  margin-bottom: 24px;
+  border-radius: 13px;
+  background: #edfaf4;
+  color: #087956;
+}
+
+.pd-account-summary svg {
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+
+.pd-account-summary p {
+  margin: 0;
+  font-family: "Noto Sans Malayalam", sans-serif;
+  font-size: 12px;
+  line-height: 1.9;
+}
+
+/* FORM */
+
+.pd-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 23px 24px;
+}
+
+.pd-field {
+  min-width: 0;
+}
+
+.pd-field label {
+  display: block;
+  margin-bottom: 9px;
+  font-family: "Noto Sans Malayalam", sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.7;
+}
+
+.pd-required {
+  color: #e11d48;
+}
+
+.pd-optional {
+  color: #718198;
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.pd-input-wrap {
+  min-height: 57px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 14px;
+  border: 1px solid #d3dfe9;
+  border-radius: 11px;
+  background: white;
+  color: #73859c;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.pd-input-wrap:focus-within {
+  border-color: #25a87e;
+  box-shadow: 0 0 0 3px rgba(37, 168, 126, 0.09);
+}
+
+.pd-input-wrap > svg {
+  flex-shrink: 0;
+}
+
+.pd-input-wrap input {
+  width: 100%;
+  min-width: 0;
+  height: 54px;
+  padding: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: #233a52;
+  font-size: 14px;
+}
+
+.pd-input-wrap input::placeholder,
+.pd-textarea-wrap textarea::placeholder {
+  color: #95a5bb;
+  opacity: 1;
+}
+
+.pd-input-suffix {
+  flex-shrink: 0;
+  padding: 8px;
+  border-radius: 7px;
+  background: #f1f4f7;
+  color: #718198;
+  font-family: "Noto Sans Malayalam", sans-serif;
+  font-size: 11px;
+}
+
+/* GENDER */
+
+.pd-gender-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.pd-gender-options button {
+  min-height: 57px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 8px;
+  border: 1px solid #d5e0e9;
+  border-radius: 11px;
+  background: white;
+  color: #718198;
+  font-family: "Noto Sans Malayalam", sans-serif;
+  font-size: 12px;
+  transition: 0.2s;
+}
+
+.pd-gender-options button.selected {
+  border-color: var(--pd-green);
+  background: #f0fcf6;
+  color: var(--pd-green);
+  box-shadow: inset 0 0 0 1px var(--pd-green);
+}
+
+/* TEXTAREA */
+
+.pd-full-width {
+  grid-column: 1 / -1;
+}
+
+.pd-textarea-wrap {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 13px 14px;
+  border: 1px solid #d3dfe9;
+  border-radius: 11px;
+  background: white;
+}
+
+.pd-textarea-wrap:focus-within {
+  border-color: #25a87e;
+  box-shadow: 0 0 0 3px rgba(37, 168, 126, 0.09);
+}
+
+.pd-textarea-wrap svg {
+  flex-shrink: 0;
+  margin-top: 4px;
+  color: #73859c;
+}
+
+.pd-textarea-wrap textarea {
+  width: 100%;
+  min-height: 55px;
+  resize: vertical;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: #233a52;
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+.pd-character-count {
+  margin-top: 4px;
+  color: #8292a6;
+  font-size: 11px;
+  text-align: right;
+}
+
+.pd-error {
+  margin-top: 18px;
+  padding: 12px;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  background: #fef2f2;
+  color: #b91c1c;
+  font-size: 13px;
+}
+
+/* SIDEBAR */
+
+.pd-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+  padding: 15px;
+}
+
+.pd-info-card {
+  padding: 21px;
+  border-radius: 16px;
+}
+
+.pd-green-info {
+  background: #edfaf3;
+}
+
+.pd-yellow-info {
+  background: #fff7e7;
+}
+
+.pd-blue-info {
+  background: #edf5ff;
+}
+
+.pd-info-heading {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin-bottom: 14px;
+}
+
+.pd-info-heading svg {
+  flex-shrink: 0;
+}
+
+.pd-green-info .pd-info-heading {
+  color: #00845e;
+}
+
+.pd-yellow-info .pd-info-heading {
+  color: #91530b;
+}
+
+.pd-blue-info .pd-info-heading {
+  color: #245985;
+}
+
+.pd-info-heading h2 {
+  margin: 0;
+  font-family: "Noto Sans Malayalam", sans-serif;
+  font-size: 17px;
+  font-weight: 800;
+  line-height: 1.7;
+}
+
+.pd-info-card > p {
+  margin: 0 0 15px;
+  color: #526a82;
+  font-family: "Noto Sans Malayalam", sans-serif;
+  font-size: 12px;
+  line-height: 1.9;
+}
+
+.pd-info-card ul {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.pd-info-card li {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  color: #354d66;
+  font-family: "Noto Sans Malayalam", sans-serif;
+  font-size: 12px;
+  line-height: 1.9;
+}
+
+.pd-info-card li svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: #00845e;
+}
+
+.pd-yellow-info > p,
+.pd-blue-info > p {
+  margin-bottom: 0;
+}
+
+.pd-patient-reminder {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 13px;
+  border: 1px solid #e0e8ef;
+  border-radius: 11px;
+  color: #687b91;
+  font-family: "Noto Sans Malayalam", sans-serif;
+  font-size: 11px;
+  line-height: 1.8;
+}
+
+.pd-patient-reminder svg {
+  flex-shrink: 0;
+  color: var(--pd-green);
+}
+
+/* BOTTOM BAR */
+
+.pd-bottom-bar {
+  position: fixed;
+  z-index: 20;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  border-top: 1px solid #e1e8ef;
+  background: rgba(255, 255, 255, 0.97);
+  backdrop-filter: blur(10px);
+}
+
+.pd-bottom-inner {
+  width: min(1480px, calc(100% - 64px));
+  min-height: 86px;
+  margin: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+}
+
+.pd-back-button,
+.pd-continue-button {
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px 20px;
+  border-radius: 13px;
+  font-family: "Noto Sans Malayalam", sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  transition: 0.2s;
+}
+
+.pd-back-button {
+  border: 1px solid #d9e3ec;
+  background: #f5f7fa;
+  color: #344a62;
+}
+
+.pd-back-button:hover {
+  background: #eaf0f5;
+}
+
+.pd-continue-button {
+  border: none;
+  background: var(--pd-green);
+  color: white;
+}
+
+.pd-continue-button:hover {
+  background: var(--pd-dark-green);
+  transform: translateY(-1px);
+}
+
+.pd-bottom-message {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #72849a;
+  font-family: "Noto Sans Malayalam", sans-serif;
+  font-size: 12px;
+}
+
+/* TABLET */
+
+@media (max-width: 1100px) {
+  .pd-header-inner,
+  .pd-main,
+  .pd-bottom-inner {
+    width: calc(100% - 32px);
+  }
+
+  .pd-header-message {
+    display: none;
+  }
+
+  .pd-progress {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .pd-content-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .pd-sidebar {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+
+  .pd-green-info {
+    grid-row: span 2;
+  }
+
+  .pd-patient-reminder {
+    grid-column: 1 / -1;
+  }
+
+  .pd-progress-step {
+    justify-content: flex-start;
+  }
+}
+
+/* MOBILE */
+
+@media (max-width: 650px) {
+  .patient-details-app {
+    padding-bottom: 82px;
+  }
+
+  .pd-header-inner {
+    width: calc(100% - 24px);
+    min-height: 76px;
+    gap: 10px;
+  }
+
+  .pd-logo {
+    width: 145px;
+    height: 52px;
+  }
+
+  .pd-header-actions {
+    gap: 7px;
+  }
+
+  .pd-language {
+    padding: 9px;
+    font-size: 11px;
+  }
+
+  .pd-language svg:last-child {
+    display: none;
+  }
+
+  .pd-emergency {
+    min-height: 39px;
+    padding: 9px 11px;
+    font-size: 12px;
+  }
+
+  .pd-main {
+    width: calc(100% - 20px);
+    margin-top: 14px;
+  }
+
+  .pd-progress {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 5px;
+    padding: 6px;
+    border-radius: 14px;
+  }
+
+  .pd-progress-step {
+    justify-content: flex-start;
+    gap: 7px;
+    padding: 8px 6px;
+  }
+
+  .pd-step-icon {
+    width: 34px;
+    height: 34px;
+  }
+
+  .pd-step-icon svg {
+    width: 18px;
+  }
+
+  .pd-progress-step strong {
+    font-size: 10px;
+  }
+
+  .pd-progress-step span {
+    font-size: 9px;
+  }
+
+  .pd-form-card {
+    padding: 16px 13px;
+    border-radius: 15px;
+  }
+
+  .pd-title-row {
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 17px;
+  }
+
+  .pd-title-icon {
+    width: 43px;
+    height: 43px;
+    border-radius: 12px;
+  }
+
+  .pd-title-icon svg {
+    width: 22px;
+  }
+
+  .pd-title-row h1 {
+    font-size: 18px;
+    line-height: 1.8;
+  }
+
+  .pd-title-row p {
+    font-size: 11px;
+  }
+
+  .pd-account-summary {
+    gap: 9px;
+    padding: 12px;
+    margin-bottom: 20px;
+  }
+
+  .pd-account-summary p {
+    font-size: 11px;
+  }
+
+  .pd-form-grid {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+
+  .pd-field label {
+    font-size: 12px;
+  }
+
+  .pd-input-wrap {
+    min-height: 51px;
+    gap: 9px;
+    padding: 0 11px;
+  }
+
+  .pd-input-wrap input {
+    height: 49px;
+    font-size: 13px;
+  }
+
+  .pd-gender-options {
+    gap: 6px;
+  }
+
+  .pd-gender-options button {
+    min-height: 49px;
+    gap: 4px;
+    padding: 6px 3px;
+    font-size: 10px;
+  }
+
+  .pd-gender-options button svg {
+    width: 17px;
+  }
+
+  .pd-full-width {
+    grid-column: auto;
+  }
+
+  .pd-sidebar {
+    display: flex;
+    padding: 10px;
+  }
+
+  .pd-info-card {
+    padding: 16px;
+  }
+
+  .pd-info-heading h2 {
+    font-size: 15px;
+  }
+
+  .pd-info-card > p,
+  .pd-info-card li {
+    font-size: 11px;
+  }
+
+  .pd-bottom-inner {
+    width: calc(100% - 20px);
+    min-height: 70px;
+    gap: 8px;
+  }
+
+  .pd-bottom-message {
+    display: none;
+  }
+
+  .pd-back-button,
+  .pd-continue-button {
+    min-height: 45px;
+    gap: 6px;
+    padding: 10px 12px;
+    font-size: 11px;
+  }
+
+  .pd-back-button svg,
+  .pd-continue-button svg {
+    width: 17px;
+  }
+}
+
+.conversion-status {
+  color: #168568;
+  font-size: 14px;
+  margin-top: 8px;
+}
