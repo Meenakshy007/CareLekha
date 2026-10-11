@@ -1138,7 +1138,7 @@ export default function HomePage({
             </div>
           )}
 
-          {reviewResult && activeStep === 2 && (
+          {false && reviewResult && activeStep === 2 && (
             <section className="cl-review-results" id="review-results" aria-live="polite">
               <div className="cl-review-heading">
                 <div>
@@ -1460,7 +1460,7 @@ export default function HomePage({
                 <button
                   type="button"
                   className="cl-routine-submit"
-                  onClick={() => setMessage("പ്രിന്റ് ചാർട്ട് സൗകര്യം ഉടൻ ലഭ്യമാകും.")}
+                  onClick={() => setActiveStep(4)}
                 >
                   അടുത്ത ഘട്ടം: പ്രിന്റ് ചാർട്ട്
                   <ChevronRight size={17} />
