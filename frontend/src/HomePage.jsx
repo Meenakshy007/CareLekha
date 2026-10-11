@@ -493,15 +493,16 @@ export default function HomePage({
       return;
     }
 
-    if (
-      index === 2 &&
-      !uploadedFile &&
-      !manualText.trim()
-    ) {
-      setMessage(
-        "Enter prescription text or select a prescription file first."
-      );
+    if (index === 2 || index === 4) {
+      if (!reviewResult) {
+        setMessage("Upload and analyze a prescription first. The review and audio guide will appear with the results.");
+        return;
+      }
 
+      setActiveStep(index);
+      document
+        .getElementById("audio-guide")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
       return;
     }
 
@@ -509,7 +510,6 @@ export default function HomePage({
       setMessage(
         "This step will become available after prescription processing is connected."
       );
-
       return;
     }
 
@@ -964,7 +964,7 @@ export default function HomePage({
           )}
 
           {reviewResult && (
-            <section className="cl-review-results" aria-live="polite">
+            <section className="cl-review-results" id="audio-guide" aria-live="polite">
               <div className="cl-review-heading">
                 <div>
                   <span className="cl-review-eyebrow">REVIEW REQUIRED</span>
@@ -1007,6 +1007,9 @@ export default function HomePage({
                                   ...previous,
                                   [index]: event.target.checked,
                                 }));
+                                if (!event.target.checked && speakingMedicineIndex === index) {
+                                  stopMedicineAudio();
+                                }
                                 setAudioStatus("");
                               }}
                             />
