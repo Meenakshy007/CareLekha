@@ -475,28 +475,50 @@ export default function HomePage({
   */
   function speakMedicineAudio(medicine, index) {
     if (!reviewConfirmed[index]) {
-      setAudioStatus("ആദ്യം ഈ മരുന്നിന്റെ വിവരങ്ങൾ യഥാർത്ഥ കുറിപ്പടിയുമായി താരതമ്യം ചെയ്യുക.");
+      setAudioStatus("ആദ്യം മൂന്നാം ഘട്ടത്തിൽ കുറിപ്പടിയിലെ വിവരങ്ങൾ പരിശോധിക്കുക.");
+      return;
+    }
+
+    const routineResult = scheduleResults[index];
+    const schedule = routineResult?.status === "ready_for_display" && Array.isArray(routineResult.schedule)
+      ? routineResult.schedule
+      : [];
+
+    if (!schedule.length) {
+      setAudioStatus("ആദ്യം നാലാം ഘട്ടത്തിൽ ഈ മരുന്നിന്റെ ദൈനംദിന ക്രമം തയ്യാറാക്കുക.");
       return;
     }
 
     if (!("speechSynthesis" in window) || !("SpeechSynthesisUtterance" in window)) {
-      setAudioStatus("ഈ ബ്രൗസറിൽ ശബ്ദം പ്ലേ ചെയ്യാൻ കഴിയുന്നില്ല. മറ്റൊരു പുതുക്കിയ ബ്രൗസർ പരീക്ഷിക്കുക.");
+      setAudioStatus("ഈ ഉപകരണത്തിൽ ശബ്ദം പ്ലേ ചെയ്യാൻ കഴിയുന്നില്ല.");
       return;
     }
 
+    const first = schedule[0];
+    const timeLabels = {
+      morning: "രാവിലെ",
+      afternoon: "ഉച്ചയ്ക്ക്",
+      evening: "വൈകുന്നേരം",
+      night: "രാത്രി",
+    };
+    const confirmedTimes = schedule
+      .map((item) => timeLabels[item.time] || "")
+      .filter(Boolean)
+      .join(", ");
+
     const fields = [
-      ["മരുന്നിന്റെ പേര്", medicine.medicine_name],
-      ["ശക്തി", medicine.strength],
-      ["കുറിപ്പടിയിലെ ഡോസ് രേഖ", medicine.original_dosage_notation || medicine.prescribed_dose],
-      ["ആവൃത്തി", medicine.frequency],
-      ["ഭക്ഷണ നിർദ്ദേശം", medicine.food_instruction],
+      ["മരുന്നിന്റെ പേര്", first.medicine_name],
+      ["ശക്തി", first.strength],
+      ["ഡോസ്", first.dose],
+      ["സ്ഥിരീകരിച്ച സമയം", confirmedTimes],
+      ["ഭക്ഷണ നിർദ്ദേശം", first.instruction],
       ["ചികിത്സാ കാലയളവ്", medicine.duration],
     ].filter(([, value]) => value !== null && value !== undefined && String(value).trim() !== "");
 
     const spokenText = [
-      "ശ്രദ്ധിക്കുക. ഇത് കുറിപ്പടിയിൽ നിന്ന് വായിച്ചെടുത്ത വിവരങ്ങളാണ്. ഇത് ഡോക്ടറുടെ ചികിത്സാ അനുമതിയല്ല.",
+      "ശ്രദ്ധിക്കുക. ഇത് നിങ്ങൾ സ്ഥിരീകരിച്ച വിവരങ്ങളിൽ നിന്ന് തയ്യാറാക്കിയ ദൈനംദിന ക്രമമാണ്. ചികിത്സയ്ക്ക് പകരമല്ല.",
       ...fields.map(([label, value]) => `${label}: ${valueForMalayalamSpeech(label, value)}.`),
-      "വ്യക്തമല്ലാത്ത വിവരങ്ങൾ ഊഹിച്ചിട്ടില്ല. മരുന്നിന്റെ ഉപയോഗത്തെക്കുറിച്ച് സംശയമുണ്ടെങ്കിൽ ഡോക്ടറെയോ ഫാർമസിസ്റ്റിനെയോ സമീപിക്കുക."
+      "ഡോസ് അല്ലെങ്കിൽ സമയം സംബന്ധിച്ച് സംശയമുണ്ടെങ്കിൽ ഡോക്ടറെയോ ഫാർമസിസ്റ്റിനെയോ സമീപിക്കുക."
     ].join(" ");
 
     window.speechSynthesis.cancel();
@@ -517,9 +539,7 @@ export default function HomePage({
           : "ഉപകരണത്തിൽ മലയാളം ശബ്ദം ലഭ്യമല്ലായിരിക്കാം. ശബ്ദ ക്രമീകരണങ്ങളിൽ മലയാളം ശബ്ദ പിന്തുണ പരിശോധിക്കുക."
       );
     };
-    utterance.onend = () => {
-      setSpeakingMedicineIndex(null);
-    };
+    utterance.onend = () => setSpeakingMedicineIndex(null);
     utterance.onerror = () => {
       setSpeakingMedicineIndex(null);
       setAudioStatus("ശബ്ദം പ്ലേ ചെയ്യാനായില്ല. ഉപകരണത്തിൽ മലയാളം ശബ്ദ പിന്തുണയുണ്ടോയെന്ന് പരിശോധിക്കുക.");
@@ -1401,26 +1421,39 @@ export default function HomePage({
               <div className="cl-routine-list">
                 {reviewResult.medicines.map((entry, index) => {
                   const medicine = entry.extracted_medicine || {};
+                  const routineResult = scheduleResults[index];
+                  const schedule = routineResult?.status === "ready_for_display" && Array.isArray(routineResult.schedule)
+                    ? routineResult.schedule
+                    : [];
+                  const first = schedule[0];
+                  const timeLabels = {
+                    morning: "രാവിലെ",
+                    afternoon: "ഉച്ചയ്ക്ക്",
+                    evening: "വൈകുന്നേരം",
+                    night: "രാത്രി",
+                  };
+                  const times = schedule.map((item) => timeLabels[item.time]).filter(Boolean).join(", ");
+
                   return (
                     <article className="cl-routine-medicine" key={`audio-${medicine.medicine_name || "medicine"}-${index}`}>
                       <div className="cl-routine-medicine-title">
                         <div>
                           <span className="cl-review-index">മരുന്ന് {index + 1}</span>
-                          <h3>{medicine.medicine_name || "പേര് വായിക്കാനായില്ല"}</h3>
+                          <h3>{first?.medicine_name || medicine.medicine_name || "പേര് വായിക്കാനായില്ല"}</h3>
                         </div>
-                        <span className="cl-review-pill">{reviewConfirmed[index] ? "വിവരങ്ങൾ പരിശോധിച്ചു" : "പരിശോധന ആവശ്യമാണ്"}</span>
+                        <span className="cl-review-pill">{schedule.length ? "ക്രമം തയ്യാറായി" : "ക്രമം തയ്യാറാക്കണം"}</span>
                       </div>
 
-                      <dl className="cl-review-fields">
-                        <div><dt>ശക്തി</dt><dd>{medicine.strength || "ലഭ്യമല്ല"}</dd></div>
-                        <div><dt>ഡോസ് രേഖ</dt><dd>{medicine.original_dosage_notation || medicine.prescribed_dose || "ലഭ്യമല്ല"}</dd></div>
-                        <div><dt>ആവൃത്തി</dt><dd>{medicine.frequency || "ലഭ്യമല്ല"}</dd></div>
-                        <div><dt>ഭക്ഷണ നിർദ്ദേശം</dt><dd>{medicine.food_instruction || "ലഭ്യമല്ല"}</dd></div>
-                        <div><dt>കാലയളവ്</dt><dd>{medicine.duration || "ലഭ്യമല്ല"}</dd></div>
-                      </dl>
-
-                      {!reviewConfirmed[index] && (
-                        <p className="cl-routine-error">ശബ്ദം കേൾക്കുന്നതിന് മുമ്പ് മൂന്നാം ഘട്ടത്തിൽ ഈ വിവരങ്ങൾ യഥാർത്ഥ കുറിപ്പടിയുമായി താരതമ്യം ചെയ്ത് പരിശോധിക്കുക.</p>
+                      {first ? (
+                        <dl className="cl-review-fields">
+                          <div><dt>ശക്തി</dt><dd>{first.strength}</dd></div>
+                          <div><dt>ഡോസ്</dt><dd>{first.dose}</dd></div>
+                          <div><dt>സ്ഥിരീകരിച്ച സമയം</dt><dd>{times}</dd></div>
+                          <div><dt>ഭക്ഷണ നിർദ്ദേശം</dt><dd>{first.instruction || "വ്യക്തമായി രേഖപ്പെടുത്തിയിട്ടില്ല"}</dd></div>
+                          {medicine.duration && <div><dt>കാലയളവ്</dt><dd>{valueForMalayalamSpeech("ചികിത്സാ കാലയളവ്", medicine.duration)}</dd></div>}
+                        </dl>
+                      ) : (
+                        <p className="cl-routine-error">ശബ്ദസഹായിക്ക് മുമ്പ് നാലാം ഘട്ടത്തിൽ ഈ മരുന്നിന്റെ ദൈനംദിന ക്രമം തയ്യാറാക്കുക.</p>
                       )}
 
                       <div className="cl-audio-actions">
@@ -1428,10 +1461,10 @@ export default function HomePage({
                           type="button"
                           className="cl-audio-button"
                           onClick={() => speakMedicineAudio(medicine, index)}
-                          disabled={!reviewConfirmed[index]}
+                          disabled={!reviewConfirmed[index] || !schedule.length}
                         >
                           <Volume2 size={16} />
-                          {speakingMedicineIndex === index ? "ശബ്ദം പ്ലേ ചെയ്യുന്നു…" : "മലയാളത്തിൽ കേൾക്കുക"}
+                          {speakingMedicineIndex === index ? "ശബ്ദം പ്ലേ ചെയ്യുന്നു…" : "ദൈനംദിന ക്രമം കേൾക്കുക"}
                         </button>
                         {speakingMedicineIndex === index && (
                           <button
