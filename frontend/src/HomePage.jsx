@@ -552,6 +552,12 @@ export default function HomePage({
       audioPlayerRef.current.currentTime = 0;
       audioPlayerRef.current = null;
     }
+    Object.values(audioElementsRef.current).forEach((player) => {
+      if (player) {
+        player.pause();
+        player.currentTime = 0;
+      }
+    });
 
     setSpeakingMedicineIndex(index);
     setAudioStatus("സ്വാഭാവിക മലയാള ശബ്ദം തയ്യാറാക്കുന്നു…");
