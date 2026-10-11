@@ -143,6 +143,12 @@ function HospitalDashboard({
   const [uploadedFile, setUploadedFile] = useState(null);
   const [uploadError, setUploadError] = useState("");
   const [uploadNotice, setUploadNotice] = useState("");
+  const [isProcessingDocument, setIsProcessingDocument] = useState(false);
+  const [extractedMedicines, setExtractedMedicines] = useState([]);
+  const [translationText, setTranslationText] = useState("");
+  const [translatedText, setTranslatedText] = useState("");
+  const [isTranslating, setIsTranslating] = useState(false);
+  const [reviewConfirmed, setReviewConfirmed] = useState(false);
 
   const [mobileMenuOpen, setMobileMenuOpen] =
     useState(false);
@@ -201,18 +207,78 @@ function HospitalDashboard({
     window.print();
   };
 
-  const handleUploadSubmit = (event) => {
+  const handleUploadSubmit = async (event) => {
     event.preventDefault();
     setUploadError("");
     setUploadNotice("");
-
+    setExtractedMedicines([]);
+    setTranslatedText("");
+    setReviewConfirmed(false);
     if (!uploadedFile) {
-      setUploadError("Please choose a prescription or hospital document first.");
+      setUploadError("Please choose a document first.");
       return;
     }
+    if (uploadedFile.type === "application/pdf" || uploadedFile.name.toLowerCase().endsWith(".pdf")) {
+      setUploadError("The current OCR service accepts JPG, PNG, or WebP images only. PDF support will be added next.");
+      return;
+    }
+    setIsProcessingDocument(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", uploadedFile);
+      const response = await fetch("http://127.0.0.1:8000/extract-prescription", { method: "POST", body: formData });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.detail || "Could not read the document. Check that the OCR API is running.");
+      const medicines = Array.isArray(payload.medicines) ? payload.medicines : [];
+      setExtractedMedicines(medicines);
+      setTranslationText(medicines.map((m) => [
+        m.medicine_name, m.strength, m.original_dosage_notation || m.prescribed_dose,
+        m.frequency, m.food_instruction, m.duration
+      ].filter(Boolean).join(" · ")).join("\\n"));
+      setUploadNotice(medicines.length ? "Extraction finished. Compare every field with the original document." : "No medicine entries were detected. Try a clearer image.");
+    } catch (error) {
+      setUploadError(error instanceof Error ? error.message : "Document processing failed.");
+    } finally {
+      setIsProcessingDocument(false);
+    }
+  };
 
-    // This confirms local selection only; server upload and OCR come next.
-    setUploadNotice(`${uploadedFile.name} is selected and ready for the next step. The file has not been sent to a server yet.`);
+  const updateExtractedMedicine = (index, field, value) => {
+    setExtractedMedicines((previous) => previous.map((medicine, i) =>
+      i === index ? { ...medicine, [field]: value, uncertainty: "Edited; verify against original" } : medicine
+    ));
+    setReviewConfirmed(false);
+    setTranslatedText("");
+  };
+
+  const handleTranslateReviewedText = async () => {
+    setUploadError("");
+    setTranslatedText("");
+    if (!reviewConfirmed) {
+      setUploadError("Confirm that you compared the extracted details with the original document first.");
+      return;
+    }
+    if (!translationText.trim()) {
+      setUploadError("Enter the reviewed instructions to translate.");
+      return;
+    }
+    setIsTranslating(true);
+    try {
+      const response = await fetch("http://127.0.0.1:8004/translate-malayalam", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: translationText.trim() }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.detail || "Translation failed. Check the translation API and its configuration.");
+      if (!payload.translation) throw new Error("The translation service returned an empty result.");
+      setTranslatedText(payload.translation);
+      setUploadNotice("Translation generated. A healthcare professional must review it before sharing.");
+    } catch (error) {
+      setUploadError(error instanceof Error ? error.message : "Translation failed.");
+    } finally {
+      setIsTranslating(false);
+    }
   };
 
   const pageDescriptions = {
@@ -1231,7 +1297,7 @@ function HospitalDashboard({
                 </strong>
 
                 <span>
-                  PDF, JPG, PNG or WebP · Maximum file size 10 MB
+                  JPG, PNG or WebP · Maximum file size 10 MB
                 </span>
                 {uploadedFile && (
                   <small aria-live="polite">
@@ -1262,12 +1328,60 @@ function HospitalDashboard({
               <button
                 type="submit"
                 className="primary-dashboard-button upload-submit-button"
+                disabled={isProcessingDocument}
               >
-                {uploadNotice ? "File selected" : "Continue"}
-                <ArrowRight size={18} />
+                {isProcessingDocument ? "Reading document…" : "Upload and extract"}
+                {!isProcessingDocument && <ArrowRight size={18} />}
               </button>
 
             </form>
+
+            {extractedMedicines.length > 0 && (
+              <section className="upload-review-section">
+                <h3>Review extracted medicine details</h3>
+                <p>Compare each value with the original. Do not guess unclear medicine names, strengths, or doses.</p>
+                {extractedMedicines.map((medicine, index) => (
+                  <article className="upload-medicine-review" key={`medicine-${index}`}>
+                    <h4>Medicine {index + 1}</h4>
+                    {[
+                      ["medicine_name", "Medicine name"],
+                      ["strength", "Strength"],
+                      ["prescribed_dose", "Prescribed dose"],
+                      ["original_dosage_notation", "Original dose notation"],
+                      ["frequency", "Frequency"],
+                      ["food_instruction", "Food instruction"],
+                      ["duration", "Duration"],
+                    ].map(([field, label]) => (
+                      <label className="upload-review-field" key={field}>
+                        <span>{label}</span>
+                        <input value={medicine[field] || ""} onChange={(event) => updateExtractedMedicine(index, field, event.target.value)} placeholder="Not detected — verify against original" />
+                      </label>
+                    ))}
+                    <small>{medicine.uncertainty || "Review required"}</small>
+                  </article>
+                ))}
+                <label className="upload-confirm-review">
+                  <input type="checkbox" checked={reviewConfirmed} onChange={(event) => { setReviewConfirmed(event.target.checked); setTranslatedText(""); }} />
+                  <span>I checked the extracted details against the original document.</span>
+                </label>
+                <label className="upload-review-field upload-translation-input">
+                  <span>Reviewed text to translate</span>
+                  <textarea rows={5} value={translationText} onChange={(event) => { setTranslationText(event.target.value); setTranslatedText(""); setReviewConfirmed(false); }} />
+                </label>
+                <button type="button" className="primary-dashboard-button upload-submit-button" onClick={handleTranslateReviewedText} disabled={isTranslating}>
+                  {isTranslating ? "Translating…" : "Translate reviewed text to Malayalam"}
+                  {!isTranslating && <Languages size={18} />}
+                </button>
+              </section>
+            )}
+            {translatedText && (
+              <section className="upload-translation-result" aria-live="polite">
+                <h3>Malayalam translation — review required</h3>
+                <p>{translatedText}</p>
+                <div className="upload-review-note"><AlertCircle size={17} /> A qualified healthcare professional must verify this translation against the original before sharing. This prototype does not save or distribute documents.</div>
+                <button type="button" className="primary-dashboard-button" onClick={() => window.print()}><Printer size={17} /> Print for review</button>
+              </section>
+            )}
 
           </section>
         </div>
