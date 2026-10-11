@@ -18,6 +18,8 @@ from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import httpx
+from contextlib import contextmanager
+from collections.abc import Iterator
 
 DB_PATH = Path(__file__).with_name("whatsapp_reminders.sqlite3")
 _ALLOWED_SLOTS = {"morning", "afternoon", "evening", "night"}
@@ -43,14 +45,22 @@ def whatsapp_is_configured() -> bool:
     )
 
 
-def _connect() -> sqlite3.Connection:
+@contextmanager
+def _db() -> Iterator[sqlite3.Connection]:
     conn = sqlite3.connect(DB_PATH, timeout=15)
     conn.row_factory = sqlite3.Row
-    return conn
+    try:
+        yield conn
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
 
 
 def _init_db() -> None:
-    with _connect() as conn:
+    with _db() as conn:
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS whatsapp_daily_reminders (
@@ -165,7 +175,7 @@ def save_daily_reminders(payload: dict[str, Any]) -> dict[str, Any]:
         ))
 
     _init_db()
-    with _connect() as conn:
+    with _db() as conn:
         conn.execute(
             "UPDATE whatsapp_daily_reminders SET active = 0 WHERE recipient_phone = ?",
             (phone,),
@@ -210,7 +220,7 @@ def save_daily_reminders(payload: dict[str, Any]) -> dict[str, Any]:
 def disable_daily_reminders(raw_phone: str) -> dict[str, Any]:
     phone = _normalize_phone(raw_phone)
     _init_db()
-    with _connect() as conn:
+    with _db() as conn:
         result = conn.execute(
             "UPDATE whatsapp_daily_reminders SET active = 0 WHERE recipient_phone = ? AND active = 1",
             (phone,),
@@ -229,7 +239,7 @@ def _claim_due_reminders() -> list[dict[str, Any]]:
     _init_db()
     due: list[dict[str, Any]] = []
 
-    with _connect() as conn:
+    with _db() as conn:
         conn.execute("BEGIN IMMEDIATE")
         rows = conn.execute(
             """
@@ -245,7 +255,7 @@ def _claim_due_reminders() -> list[dict[str, Any]]:
             # Advance the occurrence inside the transaction before sending. This
             # avoids duplicate sends if two local processes briefly overlap.
             next_run = _next_run_utc(row["send_time"], row["timezone_name"], now)
-            conn.execute(
+            cursor = conn.execute(
                 """
                 UPDATE whatsapp_daily_reminders
                 SET next_run_utc = ?, last_status = 'sending'
@@ -253,7 +263,7 @@ def _claim_due_reminders() -> list[dict[str, Any]]:
                 """,
                 (next_run, row["id"], now_text),
             )
-            if conn.total_changes:
+            if cursor.rowcount == 1:
                 due.append(dict(row))
         conn.commit()
     return due
@@ -308,7 +318,7 @@ def _send_template_message(reminder: dict[str, Any]) -> None:
 
 
 def _mark_delivery(reminder_id: int, status: str) -> None:
-    with _connect() as conn:
+    with _db() as conn:
         if status == "sent":
             conn.execute(
                 """
