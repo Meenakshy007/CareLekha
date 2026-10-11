@@ -31,7 +31,7 @@ import "./HomePage.css";
 
 // Configure with frontend/.env (VITE_CARELEKHA_API_URL).
 // The local OCR backend defaults to port 8000.
-const API_BASE_URL = (import.meta.env.VITE_CARELEKHA_API_URL || "http://127.0.0.1:8000").replace(/\\/$/, "");
+const API_BASE_URL = import.meta.env.VITE_CARELEKHA_API_URL || "http://127.0.0.1:8000";
 
 const steps = [
   {
