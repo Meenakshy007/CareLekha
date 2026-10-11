@@ -627,8 +627,8 @@ export default function HomePage({
     }
 
     if (index === 3) {
-      if (!reviewResult) {
-        setMessage("Analyze a prescription first to prepare a daily routine from confirmed instructions.");
+      if (!reviewResult || !Array.isArray(reviewResult.medicines) || reviewResult.medicines.length === 0) {
+        setMessage("Analyze a prescription with readable medicine entries first. A routine cannot be built when no medicines were extracted.");
         return;
       }
 
@@ -1317,7 +1317,7 @@ export default function HomePage({
                           checked={Boolean(draft.instructions_confirmed)}
                           onChange={(event) => updateScheduleDraft(index, { instructions_confirmed: event.target.checked })}
                         />
-                        <span>I confirm that the medicine identity, strength, dose, and every selected time match the original written instructions or have been explicitly confirmed by a qualified healthcare professional. This is my confirmation of the source information, not medical approval.</span>
+                        <span>I confirm that the medicine identity, strength, dose, selected times, and any food instruction entered above match the original written instructions or have been explicitly confirmed by a qualified healthcare professional. This confirms the source information, not medical approval.</span>
                       </label>
 
                       <div className="cl-routine-actions">
