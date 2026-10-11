@@ -705,7 +705,12 @@ export default function HomePage({
 
     if (index === 3) {
       if (!reviewResult || !Array.isArray(reviewResult.medicines) || reviewResult.medicines.length === 0) {
-        setMessage("ദൈനംദിന ക്രമം തയ്യാറാക്കാൻ ആദ്യം വായിക്കാവുന്ന മരുന്ന് വിവരങ്ങളുള്ള കുറിപ്പടി വിശകലനം ചെയ്യുക.");
+        setMessage("ദൈനംദിന ക്രമം തയ്യാറാക്കാൻ ആദ്യം കുറിപ്പടി വിശകലനം ചെയ്യുക.");
+        return;
+      }
+      if (reviewResult.medicines.some((_, medicineIndex) => !reviewConfirmed[medicineIndex])) {
+        setMessage("തുടരുന്നതിന് മുമ്പ് മൂന്നാം ഘട്ടത്തിൽ ഓരോ മരുന്നിന്റെയും വിവരങ്ങൾ പരിശോധിക്കുക.");
+        setActiveStep(2);
         return;
       }
 
@@ -1272,6 +1277,7 @@ export default function HomePage({
                   <button
                     type="button"
                     className="cl-routine-submit"
+                    disabled={!reviewResult.medicines.every((_, medicineIndex) => Boolean(reviewConfirmed[medicineIndex]))}
                     onClick={() => setActiveStep(3)}
                   >
                     അടുത്ത ഘട്ടം: ദൈനംദിന ക്രമം
@@ -1287,12 +1293,7 @@ export default function HomePage({
               <div className="cl-routine-heading">
                 <span className="cl-review-eyebrow">ഘട്ടം 4 · ദൈനംദിന ക്രമം</span>
                 <h2>ദൈനംദിന മരുന്ന് ക്രമം</h2>
-                <p>യഥാർത്ഥ കുറിപ്പടിയിൽ വ്യക്തമായി സ്ഥിരീകരിച്ച സമയങ്ങൾ മാത്രം തിരഞ്ഞെടുക്കുക.</p>
-              </div>
-
-              <div className="cl-routine-warning">
-                <ShieldCheck size={17} />
-                <span>കുറിപ്പടിയിലോ ഡോക്ടർ/ഫാർമസിസ്റ്റിന്റെ നിർദ്ദേശത്തിലോ വ്യക്തമാക്കിയ സമയം മാത്രം തിരഞ്ഞെടുക്കുക. സംശയമുണ്ടെങ്കിൽ സമയം തിരഞ്ഞെടുക്കാതെ സഹായം തേടുക.</span>
+                <p>പകർത്തിയ ഡോസും തിരഞ്ഞെടുത്ത സമയവും യഥാർത്ഥ കുറിപ്പടിയുമായി പരിശോധിക്കുക.</p>
               </div>
 
               <div className="cl-routine-list">
@@ -1313,8 +1314,9 @@ export default function HomePage({
                         <div>
                           <span className="cl-review-index">മരുന്ന് {index + 1}</span>
                           <h3>{medicine.medicine_name || "പേര് വായിക്കാനായില്ല"}</h3>
+                          <p className="cl-routine-medicine-meta">ശക്തി: {medicine.strength || "വായിക്കാനായില്ല"}</p>
                         </div>
-                        <span className="cl-review-pill">പരിശോധന ആവശ്യമാണ്</span>
+                        <span className="cl-review-pill">{reviewConfirmed[index] ? "വിവരങ്ങൾ പരിശോധിച്ചു" : "പരിശോധന ആവശ്യമാണ്"}</span>
                       </div>
 
                       <details className="cl-routine-identity-details">
@@ -1364,7 +1366,7 @@ export default function HomePage({
                       </fieldset>
 
                       <p className="cl-routine-confirm-note">
-                        സമയംയും ഡോസും ശരിയാണെന്ന് ഉറപ്പാക്കിയ ശേഷം മാത്രം ബട്ടൺ അമർത്തുക.
+                        വിവരങ്ങൾ ശരിയാണെങ്കിൽ മാത്രം സ്ഥിരീകരിച്ച് തുടരുക.
                       </p>
 
                       <div className="cl-routine-actions">
@@ -1463,7 +1465,16 @@ export default function HomePage({
                           {medicine.duration && <div><dt>കാലയളവ്</dt><dd>{valueForMalayalamSpeech("ചികിത്സാ കാലയളവ്", medicine.duration)}</dd></div>}
                         </dl>
                       ) : (
-                        <p className="cl-routine-error">ശബ്ദസഹായിക്ക് മുമ്പ് നാലാം ഘട്ടത്തിൽ ഈ മരുന്നിന്റെ ദൈനംദിന ക്രമം തയ്യാറാക്കുക.</p>
+                        <>
+                          <dl className="cl-review-fields">
+                            <div><dt>ശക്തി</dt><dd>{medicine.strength || "വായിക്കാനായില്ല"}</dd></div>
+                            <div><dt>കുറിപ്പടിയിലെ ഡോസ് രേഖ</dt><dd>{medicine.original_dosage_notation || medicine.prescribed_dose || "വായിക്കാനായില്ല"}</dd></div>
+                            <div><dt>ആവൃത്തി</dt><dd>{medicine.frequency ? valueForMalayalamSpeech("ആവൃത്തി", medicine.frequency) : "വായിക്കാനായില്ല"}</dd></div>
+                            <div><dt>ഭക്ഷണ നിർദ്ദേശം</dt><dd>{medicine.food_instruction ? valueForMalayalamSpeech("ഭക്ഷണ നിർദ്ദേശം", medicine.food_instruction) : "വായിക്കാനായില്ല"}</dd></div>
+                            {medicine.duration && <div><dt>കാലയളവ്</dt><dd>{valueForMalayalamSpeech("ചികിത്സാ കാലയളവ്", medicine.duration)}</dd></div>}
+                          </dl>
+                          <p className="cl-routine-confirm-note">ദൈനംദിന സമയക്രമം തയ്യാറാക്കിയിട്ടില്ല; പരിശോധന ചെയ്ത കുറിപ്പടി വിവരങ്ങൾ മാത്രം കേൾക്കാം.</p>
+                        </>
                       )}
 
                       <div className="cl-audio-actions">
@@ -1471,10 +1482,10 @@ export default function HomePage({
                           type="button"
                           className="cl-audio-button"
                           onClick={() => speakMedicineAudio(medicine, index)}
-                          disabled={!reviewConfirmed[index] || !schedule.length}
+                          disabled={!reviewConfirmed[index]}
                         >
                           <Volume2 size={16} />
-                          {speakingMedicineIndex === index ? "ശബ്ദം പ്ലേ ചെയ്യുന്നു…" : "ദൈനംദിന ക്രമം കേൾക്കുക"}
+                          {speakingMedicineIndex === index ? "ശബ്ദം പ്ലേ ചെയ്യുന്നു…" : first ? "ദൈനംദിന ക്രമം കേൾക്കുക" : "കുറിപ്പടി വിവരങ്ങൾ കേൾക്കുക"}
                         </button>
                         {speakingMedicineIndex === index && (
                           <button
