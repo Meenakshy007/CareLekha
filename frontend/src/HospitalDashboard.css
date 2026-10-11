@@ -2166,3 +2166,112 @@
     display: none;
   }
 }
+
+/* Hospital upload review and translation workflow */
+.upload-feedback {
+  margin: 12px 0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.upload-feedback-error {
+  color: #9b1c1c;
+  background: #fff0f0;
+  border: 1px solid #ffd0d0;
+}
+.upload-feedback-success {
+  color: #075c3d;
+  background: #e9f8ef;
+  border: 1px solid #ccebd8;
+}
+.upload-workflow-modal {
+  width: min(760px, calc(100vw - 32px));
+  max-height: min(88vh, 900px);
+  overflow-y: auto;
+}
+.upload-review-section,
+.upload-translation-result {
+  margin-top: 22px;
+  padding-top: 20px;
+  border-top: 1px solid #e5eee8;
+}
+.upload-review-section h3,
+.upload-translation-result h3 {
+  margin: 0 0 8px;
+  color: #174d35;
+  font-size: 17px;
+}
+.upload-review-section > p {
+  color: #63756a;
+  line-height: 1.6;
+}
+.upload-medicine-review {
+  margin: 14px 0;
+  padding: 16px;
+  border: 1px solid #dfece4;
+  border-radius: 12px;
+  background: #fbfefc;
+}
+.upload-medicine-review h4 {
+  margin: 0 0 12px;
+  color: #075e3d;
+}
+.upload-review-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 12px 0;
+}
+.upload-review-field span {
+  color: #334c3e;
+  font-size: 12px;
+  font-weight: 700;
+}
+.upload-review-field input,
+.upload-review-field textarea {
+  width: 100%;
+  min-height: 40px;
+  padding: 10px 12px;
+  color: #1c3326;
+  background: white;
+  border: 1px solid #d8e5dc;
+  border-radius: 8px;
+  font: inherit;
+}
+.upload-review-field textarea {
+  resize: vertical;
+  line-height: 1.6;
+}
+.upload-medicine-review small {
+  color: #8a5b0b;
+  display: block;
+  margin-top: 10px;
+}
+.upload-confirm-review {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 18px 0;
+  padding: 13px;
+  background: #f2f8f4;
+  border-radius: 10px;
+  line-height: 1.5;
+}
+.upload-confirm-review input {
+  margin-top: 3px;
+  flex: 0 0 auto;
+}
+.upload-translation-result > p {
+  padding: 16px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: #f3faf6;
+  border: 1px solid #dcefe3;
+  border-radius: 10px;
+  line-height: 1.8;
+}
+.upload-submit-button:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
