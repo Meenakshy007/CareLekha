@@ -1519,7 +1519,7 @@ export default function HomePage({
                     disabled={!reviewResult.medicines.every((_, medicineIndex) => Boolean(reviewConfirmed[medicineIndex]))}
                     onClick={() => setActiveStep(3)}
                   >
-                    അടുത്ത ഘട്ടം: ദൈനംദിന ക്രമം
+                    അടുത്ത ഘട്ടം: മലയാളം ശബ്ദസഹായി
                     <ChevronRight size={17} />
                   </button>
                 </div>
