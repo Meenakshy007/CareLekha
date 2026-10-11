@@ -196,6 +196,7 @@ export default function HomePage({
   const [reviewConfirmed, setReviewConfirmed] = useState({});
   const [audioStatus, setAudioStatus] = useState("");
   const [speakingMedicineIndex, setSpeakingMedicineIndex] = useState(null);
+  const [audioSources, setAudioSources] = useState({});
   const [scheduleDrafts, setScheduleDrafts] = useState({});
   const [scheduleResults, setScheduleResults] = useState({});
   const [scheduleLoading, setScheduleLoading] = useState({});
@@ -203,6 +204,8 @@ export default function HomePage({
 
   const conversionTimer = useRef(null);
   const fileInputRef = useRef(null);
+  const audioPlayerRef = useRef(null);
+  const audioSourcesRef = useRef({});
 
   useEffect(() => {
     const sectionByStep = {
@@ -475,14 +478,9 @@ export default function HomePage({
     Speak only OCR fields that the user has compared with the original image.
     This confirms transcription review, not clinical approval.
   */
-  function speakMedicineAudio(medicine, index) {
+  async function speakMedicineAudio(medicine, index) {
     if (!reviewConfirmed[index]) {
       setAudioStatus("ആദ്യം മൂന്നാം ഘട്ടത്തിൽ കുറിപ്പടിയിലെ വിവരങ്ങൾ പരിശോധിക്കുക.");
-      return;
-    }
-
-    if (!("speechSynthesis" in window) || !("SpeechSynthesisUtterance" in window)) {
-      setAudioStatus("ഈ ഉപകരണത്തിൽ ശബ്ദം പ്ലേ ചെയ്യാൻ കഴിയുന്നില്ല.");
       return;
     }
 
@@ -533,42 +531,95 @@ export default function HomePage({
       "ഡോസ് അല്ലെങ്കിൽ സമയം സംബന്ധിച്ച് സംശയമുണ്ടെങ്കിൽ ഡോക്ടറെയോ ഫാർമസിസ്റ്റിനെയോ സമീപിക്കുക."
     ].join(" ");
 
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(spokenText);
-    utterance.lang = "ml-IN";
-    utterance.rate = 0.88;
-    utterance.pitch = 1;
+    if (audioPlayerRef.current) {
+      audioPlayerRef.current.pause();
+      audioPlayerRef.current.currentTime = 0;
+      audioPlayerRef.current = null;
+    }
 
-    const voices = window.speechSynthesis.getVoices();
-    const malayalamVoice = voices.find((voice) => /^ml([_-]|$)/i.test(voice.lang));
-    if (malayalamVoice) utterance.voice = malayalamVoice;
+    setSpeakingMedicineIndex(index);
+    setAudioStatus("സ്വാഭാവിക മലയാള ശബ്ദം തയ്യാറാക്കുന്നു…");
 
-    utterance.onstart = () => {
-      setSpeakingMedicineIndex(index);
-      setAudioStatus(
-        malayalamVoice
-          ? "മലയാളം ശബ്ദസഹായി പ്ലേ ചെയ്യുന്നു."
-          : "ഉപകരണത്തിൽ മലയാളം ശബ്ദം ലഭ്യമല്ലായിരിക്കാം. ശബ്ദ ക്രമീകരണങ്ങളിൽ മലയാളം ശബ്ദ പിന്തുണ പരിശോധിക്കുക."
-      );
-    };
-    utterance.onend = () => setSpeakingMedicineIndex(null);
-    utterance.onerror = () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/audio-guide`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: spokenText }),
+      });
+
+      if (!response.ok) {
+        let detail = "";
+        try {
+          const errorBody = await response.json();
+          detail = errorBody?.detail || "";
+        } catch {
+          // The server may return a non-JSON error body.
+        }
+        throw new Error(detail || "മലയാളം ശബ്ദം സൃഷ്ടിക്കാനായില്ല. വീണ്ടും ശ്രമിക്കുക.");
+      }
+
+      const audioBlob = await response.blob();
+      if (!audioBlob.size || !audioBlob.type.startsWith("audio/")) {
+        throw new Error("മലയാളം ശബ്ദ ഫയൽ ശരിയായി ലഭിച്ചില്ല. വീണ്ടും ശ്രമിക്കുക.");
+      }
+
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const oldUrl = audioSourcesRef.current[index];
+      if (oldUrl) URL.revokeObjectURL(oldUrl);
+
+      audioSourcesRef.current = {
+        ...audioSourcesRef.current,
+        [index]: audioUrl,
+      };
+      setAudioSources({ ...audioSourcesRef.current });
+
+      const player = new Audio(audioUrl);
+      audioPlayerRef.current = player;
+      player.onended = () => {
+        setSpeakingMedicineIndex(null);
+        setAudioStatus("ശബ്ദം പൂർത്തിയായി.");
+      };
+      player.onerror = () => {
+        setSpeakingMedicineIndex(null);
+        setAudioStatus("ശബ്ദം പ്ലേ ചെയ്യാനായില്ല. താഴെയുള്ള പ്ലേ ബട്ടൺ ഉപയോഗിക്കുക.");
+      };
+
+      try {
+        await player.play();
+        setAudioStatus("മലയാളം ശബ്ദസഹായി പ്ലേ ചെയ്യുന്നു.");
+      } catch {
+        // Browser autoplay may be blocked after the network request. The HTML audio
+        // controls below remain available and will not fall back to an English voice.
+        setSpeakingMedicineIndex(null);
+        setAudioStatus("മലയാളം ശബ്ദം തയ്യാറായി. താഴെയുള്ള പ്ലേ ബട്ടൺ അമർത്തുക.");
+      }
+    } catch (error) {
       setSpeakingMedicineIndex(null);
-      setAudioStatus("ശബ്ദം പ്ലേ ചെയ്യാനായില്ല. ഉപകരണത്തിൽ മലയാളം ശബ്ദ പിന്തുണയുണ്ടോയെന്ന് പരിശോധിക്കുക.");
-    };
-
-    setAudioStatus("മലയാളം ശബ്ദസഹായി ആരംഭിക്കുന്നു…");
-    window.speechSynthesis.speak(utterance);
+      setAudioStatus(
+        error instanceof TypeError
+          ? "ശബ്ദ സേവനവുമായി ബന്ധപ്പെടാനായില്ല. OCR API പ്രവർത്തിക്കുന്നുണ്ടോയെന്ന് പരിശോധിക്കുക."
+          : (error instanceof Error && error.message ? error.message : "മലയാളം ശബ്ദം സൃഷ്ടിക്കാനായില്ല.")
+      );
+    }
   }
 
   function stopMedicineAudio() {
-    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+    if (audioPlayerRef.current) {
+      audioPlayerRef.current.pause();
+      audioPlayerRef.current.currentTime = 0;
+      audioPlayerRef.current = null;
+    }
     setSpeakingMedicineIndex(null);
     setAudioStatus("ശബ്ദം നിർത്തി.");
   }
 
   useEffect(() => () => {
-    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+    if (audioPlayerRef.current) {
+      audioPlayerRef.current.pause();
+      audioPlayerRef.current = null;
+    }
+    Object.values(audioSourcesRef.current).forEach((url) => URL.revokeObjectURL(url));
+    audioSourcesRef.current = {};
   }, []);
 
   function getRoutineDose(medicine) {
@@ -1512,6 +1563,24 @@ export default function HomePage({
                           </button>
                         )}
                       </div>
+                      {audioSources[index] && (
+                        <audio
+                          className="cl-generated-audio"
+                          controls
+                          preload="metadata"
+                          src={audioSources[index]}
+                          onPlay={() => {
+                            setSpeakingMedicineIndex(index);
+                            setAudioStatus("മലയാളം ശബ്ദസഹായി പ്ലേ ചെയ്യുന്നു.");
+                          }}
+                          onEnded={() => {
+                            setSpeakingMedicineIndex(null);
+                            setAudioStatus("ശബ്ദം പൂർത്തിയായി.");
+                          }}
+                        >
+                          നിങ്ങളുടെ ബ്രൗസർ ശബ്ദം പ്ലേ ചെയ്യാൻ പിന്തുണയ്ക്കുന്നില്ല.
+                        </audio>
+                      )}
                     </article>
                   );
                 })}
