@@ -1165,23 +1165,23 @@ export default function HomePage({
                           </label>
                           <small>ഈ പരിശോധന കുറിപ്പടിയിലെ വിവരങ്ങൾ ശരിയായി വായിച്ചിട്ടുണ്ടോ എന്നതിനുള്ളതാണ്; ചികിത്സയ്ക്ക് അംഗീകാരം നൽകുന്നതല്ല.</small>
                         </div>
-                        <div className="cl-candidates-heading">
-                          <strong>സമാന മരുന്ന് രേഖകൾ</strong><span>{candidates.length} നിർദ്ദേശങ്ങൾ</span>
-                        </div>
+                        <details className="cl-candidates-details">
+                          <summary>സമാന മരുന്ന് രേഖകൾ കാണുക ({candidates.length})</summary>
                         {candidates.length ? (
                           <div className="cl-candidate-list">
                             {candidates.map((candidate, ci) => (
                               <div className="cl-candidate" key={`${candidate.id || candidate.name}-${ci}`}>
                                 <div className="cl-candidate-title">
-                                  <strong>{candidate.name || "Unnamed item"}</strong>
+                                  <strong>{candidate.name || "പേര് ലഭ്യമല്ല"}</strong>
                                   <span>പാഠസാമ്യം: {Number(candidate.similarity_score || 0).toFixed(3)}</span>
                                 </div>
-                                <p>{[candidate.short_composition1, candidate.short_composition2, candidate.pack_size_label, candidate.is_discontinued ? "പട്ടികയിൽ നിർത്തലാക്കിയതായി രേഖപ്പെടുത്തിയിരിക്കുന്നു" : ""].filter(Boolean).join(" · ") || "Composition unavailable"}</p>
+                                <p>{[candidate.short_composition1, candidate.short_composition2, candidate.pack_size_label, candidate.is_discontinued ? "പട്ടികയിൽ നിർത്തലാക്കിയതായി രേഖപ്പെടുത്തിയിരിക്കുന്നു" : ""].filter(Boolean).join(" · ") || "ഘടനാ വിവരം ലഭ്യമല്ല"}</p>
                                 <small>ഇത് ഒരു നിർദ്ദേശം മാത്രമാണ്. മരുന്നിന്റെ പേര്, ശക്തി, രൂപം എന്നിവ യഥാർത്ഥ കുറിപ്പടിയുമായി പരിശോധിക്കുക.</small>
                               </div>
                             ))}
                           </div>
                         ) : <p className="cl-review-empty">പൊരുത്തങ്ങൾ കണ്ടെത്തിയില്ല. ഊഹിക്കാതെ ഡോക്ടറുടെയോ ഫാർമസിസ്റ്റിന്റെയോ സഹായം തേടുക.</p>}
+                        </details>
                       </article>
                     );
                   })}
