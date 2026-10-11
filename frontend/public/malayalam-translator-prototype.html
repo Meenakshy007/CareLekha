@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CareLekha | Medical Translator</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f3f7f8;
+            color: #19323c;
+            min-height: 100vh;
+        }
+
+        header {
+            background: #087f8c;
+            color: white;
+            padding: 22px 8%;
+        }
+
+        header h1 {
+            font-size: 28px;
+        }
+
+        header p {
+            margin-top: 6px;
+            opacity: 0.9;
+        }
+
+        main {
+            max-width: 1000px;
+            margin: 35px auto;
+            padding: 0 20px;
+        }
+
+        .intro {
+            margin-bottom: 25px;
+        }
+
+        .intro h2 {
+            font-size: 27px;
+            margin-bottom: 10px;
+        }
+
+        .intro p {
+            color: #61747b;
+            line-height: 1.6;
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 22px;
+        }
+
+        .card {
+            background: white;
+            padding: 24px;
+            border-radius: 14px;
+            box-shadow: 0 5px 20px #173c4a10;
+            min-width: 0;
+        }
+
+        .card h3 {
+            margin-bottom: 18px;
+            font-size: 19px;
+        }
+
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 9px;
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 190px;
+            padding: 13px;
+            border: 1px solid #ccdadd;
+            border-radius: 9px;
+            font: inherit;
+            resize: vertical;
+            line-height: 1.6;
+        }
+
+        textarea:focus {
+            outline: 2px solid #65bdc5;
+            border-color: #087f8c;
+        }
+
+        input[type="file"] {
+            width: 100%;
+            margin: 8px 0 15px;
+        }
+
+        .preview {
+            display: none;
+            width: 100%;
+            max-height: 240px;
+            object-fit: contain;
+            border-radius: 8px;
+            margin: 10px 0;
+            background: #f3f7f8;
+        }
+
+        button {
+            background: #087f8c;
+            color: white;
+            border: none;
+            padding: 13px 18px;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #066873;
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .translate-btn {
+            width: 100%;
+            margin-top: 17px;
+        }
+
+        .secondary-btn {
+            background: #e6f3f4;
+            color: #087f8c;
+            margin-top: 10px;
+        }
+
+        .secondary-btn:hover {
+            background: #d5ebed;
+        }
+
+        .output {
+            min-height: 190px;
+            padding: 15px;
+            border: 1px solid #dce6e8;
+            border-radius: 9px;
+            background: #f9fbfb;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+            line-height: 1.9;
+            font-size: 17px;
+        }
+
+        .status {
+            margin-top: 12px;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .warning {
+            margin-top: 22px;
+            background: #fff7e5;
+            border-left: 4px solid #e3a126;
+            padding: 14px;
+            border-radius: 6px;
+            color: #634b1a;
+            line-height: 1.6;
+            font-size: 14px;
+        }
+
+        footer {
+            text-align: center;
+            padding: 25px 15px;
+            color: #718187;
+            font-size: 13px;
+        }
+
+        @media (max-width: 700px) {
+            .layout {
+                grid-template-columns: 1fr;
+            }
+            header {
+                padding: 20px;
+            }
+            .intro h2 {
+                font-size: 23px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <h1>CareLekha</h1>
+        <p>Medical Documents. Clearer Language. Better Understanding.</p>
+    </header>
+
+    <main>
+        <section class="intro">
+            <h2>Medical Prescription Translator</h2>
+            <p>
+                Enter prescription text and translate it into Malayalam to make medical instructions easier to understand.
+            </p>
+        </section>
+
+        <div class="layout">
+            <section class="card">
+                <h3>01. Enter Prescription</h3>
+
+                <label for="prescription">Prescription text</label>
+                <textarea id="prescription" placeholder="Enter or paste the prescription text here..."></textarea>
+
+                <label for="imageUpload" style="margin-top:18px">
+                    Or upload a prescription image
+                </label>
+
+                <input type="file" id="imageUpload" accept="image/*">
+
+                <img id="preview" class="preview" alt="Prescription preview">
+
+                <button id="translateBtn" class="translate-btn">
+                    Translate to Malayalam
+                </button>
+
+                <p id="status" class="status" role="status" aria-live="polite"></p>
+            </section>
+
+            <section class="card">
+                <h3>02. Malayalam Translation</h3>
+
+                <div id="translation" class="output" lang="ml" aria-live="polite">Your Malayalam translation will appear here.</div>
+
+                <button id="copyBtn" class="secondary-btn">
+                    Copy Translation
+                </button>
+            </section>
+        </div>
+
+        <div class="warning">
+            <strong>Medical safety notice:</strong> This tool is for understanding medical documents, not for making treatment decisions. Verify medicine names, dosages, and instructions with a qualified healthcare professional. Do not change your medication
+            based on an automated translation.
+        </div>
+    </main>
+
+    <footer>
+        CareLekha | Medical Language Assistance
+    </footer>
+
+    <script>
+        // Change this URL if your backend runs at a different address.
+
+        const API_URL = "http://127.0.0.1:8000/translate-malayalam";
+
+        const prescription = document.getElementById("prescription");
+        const imageUpload = document.getElementById("imageUpload");
+        const preview = document.getElementById("preview");
+        const translateBtn = document.getElementById("translateBtn");
+        const translation = document.getElementById("translation");
+        const status = document.getElementById("status");
+        const copyBtn = document.getElementById("copyBtn");
+
+        imageUpload.addEventListener("change", function() {
+            const file = this.files[0];
+
+            if (!file) {
+                preview.removeAttribute("src");
+                preview.style.display = "none";
+                return;
+            }
+
+            if (!file.type.startsWith("image/")) {
+                status.textContent = "Please select a valid image file.";
+                this.value = "";
+                preview.style.display = "none";
+                return;
+            }
+
+            const reader = new FileReader();
+
+            reader.onload = function(event) {
+                preview.src = event.target.result;
+                preview.style.display = "block";
+            };
+
+            reader.readAsDataURL(file);
+
+            status.textContent =
+                "Image selected. Image text extraction is not connected yet.";
+        });
+
+        translateBtn.addEventListener("click", async function() {
+            const text = prescription.value.trim();
+
+            if (!text) {
+                status.textContent =
+                    "Please enter prescription text before translating.";
+                prescription.focus();
+                return;
+            }
+
+            translateBtn.disabled = true;
+            translateBtn.textContent = "Translating...";
+            status.textContent = "Connecting to CareLekha backend...";
+            translation.textContent = "";
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        text: text
+                    })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(
+                        data.detail || data.error || "Translation request failed."
+                    );
+                }
+
+                // Supports either "translation" or "translated_text".
+                const result =
+                    data.translation ? ? data.translated_text;
+
+                if (typeof result !== "string") {
+                    throw new Error(
+                        "The backend response does not contain a translation field."
+                    );
+                }
+
+                translation.textContent = result;
+                status.textContent = "Translation completed.";
+
+            } catch (error) {
+                translation.textContent =
+                    "Translation could not be completed.";
+
+                status.textContent =
+                    "Error: " + error.message +
+                    " Check whether the backend is running and its API endpoint matches this page.";
+            } finally {
+                translateBtn.disabled = false;
+                translateBtn.textContent = "Translate to Malayalam";
+            }
+        });
+
+        copyBtn.addEventListener("click", async function() {
+            const text = translation.textContent;
+
+            if (!text ||
+                text === "Your Malayalam translation will appear here." ||
+                text === "Translation could not be completed."
+            ) {
+                status.textContent = "There is no translation to copy.";
+                return;
+            }
+
+            try {
+                await navigator.clipboard.writeText(text);
+                status.textContent = "Translation copied.";
+            } catch {
+                status.textContent =
+                    "Copy failed. Please select and copy the text manually.";
+            }
+        });
+    </script>
+</body>
+
+</html>
