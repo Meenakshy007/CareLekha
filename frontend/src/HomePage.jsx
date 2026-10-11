@@ -29,9 +29,11 @@ import {
 
 import "./HomePage.css";
 
-// Configure with frontend/.env (VITE_CARELEKHA_API_URL).
-// The local OCR backend defaults to port 8000.
+// Prescription OCR/review runs on the OCR API.
 const API_BASE_URL = import.meta.env.VITE_CARELEKHA_API_URL || "http://127.0.0.1:8000";
+// Daily routine requests go directly to the Safety API, where ScheduleRequest and
+// build_schedule live. Do not route /schedule through the OCR API.
+const SAFETY_API_BASE_URL = import.meta.env.VITE_CARELEKHA_SAFETY_API_URL || "http://127.0.0.1:8003";
 
 const steps = [
   {
@@ -635,7 +637,7 @@ export default function HomePage({
 
     setScheduleLoading((previous) => ({ ...previous, [index]: true }));
     try {
-      const response = await fetch(`${API_BASE_URL}/schedule`, {
+      const response = await fetch(`${SAFETY_API_BASE_URL}/schedule`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -650,7 +652,7 @@ export default function HomePage({
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
         if (response.status === 404) {
-          throw new Error("ദൈനംദിന ക്രമത്തിനുള്ള API നിലവിലെ OCR സേവനത്തിൽ ലഭ്യമല്ല. backend/ocr/main.py പുതുക്കി OCR സേവനം വീണ്ടും ആരംഭിക്കുക.");
+          throw new Error("സുരക്ഷാ API-യിൽ ദൈനംദിന ക്രമം സൗകര്യം കണ്ടെത്തിയില്ല. backend/safety സേവനത്തിൽ /schedule ഉണ്ടെന്ന് ഉറപ്പാക്കുക.");
         }
         if (response.status === 502 || response.status === 503) {
           throw new Error("സുരക്ഷാ സേവനവുമായി ബന്ധപ്പെടാനായില്ല. സുരക്ഷാ API പ്രവർത്തിക്കുന്നുണ്ടെന്ന് പരിശോധിക്കുക.");
