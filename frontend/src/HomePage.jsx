@@ -975,6 +975,8 @@ export default function HomePage({
     setActiveStep(index);
   }
 
+  const completeRoutine = getCompleteRoutineData();
+
   return (
     <div className="carelekha-app">
       {/* HEADER */}
@@ -1525,136 +1527,8 @@ export default function HomePage({
             </section>
           )}
 
-          {reviewResult && activeStep === 3 && Array.isArray(reviewResult.medicines) && reviewResult.medicines.length > 0 && (
-            <section className="cl-daily-routine" id="daily-routine" aria-live="polite">
-              <div className="cl-routine-heading">
-                <span className="cl-review-eyebrow">ഘട്ടം 4 · ദൈനംദിന ക്രമം</span>
-                <h2>ദൈനംദിന മരുന്ന് ക്രമം</h2>
-                <p>പകർത്തിയ ഡോസും തിരഞ്ഞെടുത്ത സമയവും യഥാർത്ഥ കുറിപ്പടിയുമായി പരിശോധിക്കുക.</p>
-              </div>
-
-              <div className="cl-routine-list">
-                {reviewResult.medicines.map((entry, index) => {
-                  const medicine = entry.extracted_medicine || {};
-                  const draft = getScheduleDraft(index, medicine);
-                  const result = scheduleResults[index];
-                  const times = [
-                    { value: "morning", label: "രാവിലെ" },
-                    { value: "afternoon", label: "ഉച്ചയ്ക്ക്" },
-                    { value: "evening", label: "വൈകുന്നേരം" },
-                    { value: "night", label: "രാത്രി" },
-                  ];
-
-                  return (
-                    <article className="cl-routine-medicine" key={`routine-${medicine.medicine_name || "medicine"}-${index}`}>
-                      <div className="cl-routine-medicine-title">
-                        <div>
-                          <span className="cl-review-index">മരുന്ന് {index + 1}</span>
-                          <h3>{medicine.medicine_name || "പേര് വായിക്കാനായില്ല"}</h3>
-                          <p className="cl-routine-medicine-meta">ശക്തി: {medicine.strength || "വായിക്കാനായില്ല"}</p>
-                        </div>
-                        <span className="cl-review-pill">{reviewConfirmed[index] ? "വിവരങ്ങൾ പരിശോധിച്ചു" : "പരിശോധന ആവശ്യമാണ്"}</span>
-                      </div>
-
-                      <details className="cl-routine-identity-details">
-                        <summary>മരുന്നിന്റെ പേരോ ശക്തിയോ തിരുത്തുക</summary>
-                        <div className="cl-routine-form-grid">
-                          <label>
-                            <span>മരുന്നിന്റെ പേര്</span>
-                            <input type="text" value={draft.medicine_name} onChange={(event) => updateScheduleDraft(index, { medicine_name: event.target.value })} autoComplete="off" />
-                          </label>
-                          <label>
-                            <span>ശക്തി</span>
-                            <input type="text" value={draft.strength} onChange={(event) => updateScheduleDraft(index, { strength: event.target.value })} placeholder="കുറിപ്പടിയിൽ ഉള്ളതുപോലെ, ഉദാ. 500 mg" autoComplete="off" />
-                          </label>
-                        </div>
-                      </details>
-                      <div className="cl-routine-form-grid">
-                        <label>
-                          <span>ഡോസ് (കുറിപ്പടിയിൽ ഉള്ളതുപോലെ)</span>
-                          <input type="text" value={draft.dose} onChange={(event) => updateScheduleDraft(index, { dose: event.target.value })} placeholder="ഡോസ് വ്യക്തമല്ലെങ്കിൽ ചോദിച്ച് ഉറപ്പാക്കുക" autoComplete="off" />
-                        </label>
-                        <p className="cl-routine-source-food">
-                          <strong>ഭക്ഷണ നിർദ്ദേശം:</strong>{" "}
-                          {medicine.food_instruction ? valueForMalayalamSpeech("ഭക്ഷണ നിർദ്ദേശം", medicine.food_instruction) : "വായിച്ചെടുക്കാനായില്ല; ഊഹിച്ചിട്ടില്ല."}
-                        </p>
-                      </div>
-
-                      <fieldset className="cl-routine-times">
-                        <legend>സ്ഥിരീകരിച്ച സമയം(ങ്ങൾ)</legend>
-                        <div className="cl-routine-time-options">
-                          {times.map((time) => (
-                            <label key={time.value}>
-                              <input
-                                type="checkbox"
-                                checked={draft.confirmed_times.includes(time.value)}
-                                onChange={(event) => {
-                                  const nextTimes = event.target.checked
-                                    ? [...draft.confirmed_times, time.value]
-                                    : draft.confirmed_times.filter((value) => value !== time.value);
-                                  updateScheduleDraft(index, { confirmed_times: nextTimes });
-                                }}
-                              />
-                              <span>{time.label}</span>
-                            </label>
-                          ))}
-                        </div>
-                        <p>1-0-1 പോലുള്ള ഡോസ് രേഖകളിൽ നിന്ന് സമയം സ്വയം കണക്കാക്കില്ല.</p>
-                      </fieldset>
-
-                      <p className="cl-routine-confirm-note">
-                        വിവരങ്ങൾ ശരിയാണെങ്കിൽ മാത്രം സ്ഥിരീകരിച്ച് തുടരുക.
-                      </p>
-
-                      <div className="cl-routine-actions">
-                        <button
-                          type="button"
-                          className="cl-routine-submit"
-                          onClick={() => submitDailyRoutine(entry, index)}
-                          disabled={Boolean(scheduleLoading[index])}
-                        >
-                          <CalendarDays size={16} />
-                          {scheduleLoading[index] ? "ക്രമം തയ്യാറാക്കുന്നു…" : "സ്ഥിരീകരിച്ച് ക്രമം തയ്യാറാക്കുക"}
-                        </button>
-                        {result?.status === "ready_for_display" && (
-                          <span className="cl-routine-ready">സ്ഥിരീകരിച്ച വിവരങ്ങളിൽ നിന്ന് ക്രമം തയ്യാറാക്കി</span>
-                        )}
-                      </div>
-
-                      {scheduleErrors[index] && <p className="cl-routine-error" role="alert">{scheduleErrors[index]}</p>}
-
-                      {result?.status === "ready_for_display" && Array.isArray(result.schedule) && (
-                        <div className="cl-routine-output">
-                          <h4>ദൈനംദിന മരുന്ന് ക്രമം</h4>
-                          {result.schedule.map((item, itemIndex) => (
-                            <div className="cl-routine-output-row" key={`routine-row-${item.time}-${itemIndex}`}>
-                              <strong>{({ morning: "രാവിലെ", afternoon: "ഉച്ചയ്ക്ക്", evening: "വൈകുന്നേരം", night: "രാത്രി" })[item.time] || item.time}</strong>
-                              <span>{item.medicine_name} · {item.strength} · {item.dose}</span>
-                              {item.instruction && <small>ഭക്ഷണ നിർദ്ദേശം: {item.instruction}</small>}
-                            </div>
-                          ))}
-                          <p>സ്ഥിരീകരിച്ച വിവരങ്ങൾ ക്രമീകരിച്ച് കാണിക്കാനാണ് ഇത്. ഇത് കുറിപ്പടിയോ ചികിത്സാ അംഗീകാരമോ ഓർമ്മപ്പെടുത്തൽ സേവനമോ അല്ല.</p>
-                        </div>
-                      )}
-                    </article>
-                  );
-                })}
-              </div>
-              <div className="cl-workflow-next">
-                <button
-                  type="button"
-                  className="cl-routine-submit"
-                  onClick={() => setActiveStep(4)}
-                >
-                  അടുത്ത ഘട്ടം: മലയാളം ശബ്ദസഹായി
-                  <Volume2 size={17} />
-                </button>
-              </div>
-            </section>
-          )}
-
           {/* ഘട്ടം 5: മലയാളം ശബ്ദസഹായി */}
-          {reviewResult && activeStep === 4 && Array.isArray(reviewResult.medicines) && reviewResult.medicines.length > 0 && (
+          {reviewResult && activeStep === 3 && Array.isArray(reviewResult.medicines) && reviewResult.medicines.length > 0 && (
             <section className="cl-audio-guide-section" id="audio-guide" aria-live="polite">
               <div className="cl-routine-heading">
                 <span className="cl-review-eyebrow">ഘട്ടം 5 · മലയാളം ശബ്ദസഹായി</span>
@@ -1771,15 +1645,269 @@ export default function HomePage({
                 <button
                   type="button"
                   className="cl-routine-submit"
-                  onClick={() => setMessage("പ്രിന്റ് ചാർട്ട് സൗകര്യം ഉടൻ ലഭ്യമാകും.")}
+                  onClick={() => setActiveStep(4)}
                 >
-                  അടുത്ത ഘട്ടം: പ്രിന്റ് ചാർട്ട്
+                  അടുത്ത ഘട്ടം: സമ്പൂർണ്ണ ദിനചര്യ
                   <ChevronRight size={17} />
                 </button>
               </div>
             </section>
           )}
 
+
+          {reviewResult && activeStep === 4 && Array.isArray(reviewResult.medicines) && reviewResult.medicines.length > 0 && (
+            <section className="cl-daily-routine" id="daily-routine" aria-live="polite">
+              <div className="cl-routine-heading">
+                <span className="cl-review-eyebrow">ഘട്ടം 6 · സമ്പൂർണ്ണ ദിനചര്യ</span>
+                <h2>എല്ലാ മരുന്നുകളുടെയും ദൈനംദിന ക്രമം</h2>
+                <p>ഓരോ മരുന്നിന്റെയും വിവരങ്ങൾ പരിശോധിച്ച് സമയങ്ങൾ സ്ഥിരീകരിക്കുക. തുടർന്ന് മുഴുവൻ പട്ടികയും ഇവിടെ ഒരുമിച്ച് കാണാം.</p>
+              </div>
+
+              <div className="cl-routine-list">
+                {reviewResult.medicines.map((entry, index) => {
+                  const medicine = entry.extracted_medicine || {};
+                  const draft = getScheduleDraft(index, medicine);
+                  const result = scheduleResults[index];
+                  const shorthand = getOneZeroOnePlan(medicine);
+                  const times = [
+                    { value: "morning", label: "രാവിലെ" },
+                    { value: "afternoon", label: "ഉച്ചയ്ക്ക്" },
+                    { value: "evening", label: "വൈകുന്നേരം" },
+                    { value: "night", label: "രാത്രി" },
+                  ];
+
+                  return (
+                    <article className="cl-routine-medicine" key={`routine-${medicine.medicine_name || "medicine"}-${index}`}>
+                      <div className="cl-routine-medicine-title">
+                        <div>
+                          <span className="cl-review-index">മരുന്ന് {index + 1}</span>
+                          <h3>{medicine.medicine_name || "പേര് വായിക്കാനായില്ല"}</h3>
+                          <p className="cl-routine-medicine-meta">ശക്തി: {medicine.strength || "വായിക്കാനായില്ല"}</p>
+                        </div>
+                        <span className="cl-review-pill">{reviewConfirmed[index] ? "വിവരങ്ങൾ പരിശോധിച്ചു" : "പരിശോധന ആവശ്യമാണ്"}</span>
+                      </div>
+
+                      <details className="cl-routine-identity-details">
+                        <summary>മരുന്നിന്റെ പേരോ ശക്തിയോ തിരുത്തുക</summary>
+                        <div className="cl-routine-form-grid">
+                          <label>
+                            <span>മരുന്നിന്റെ പേര്</span>
+                            <input type="text" value={draft.medicine_name} onChange={(event) => updateScheduleDraft(index, { medicine_name: event.target.value })} autoComplete="off" />
+                          </label>
+                          <label>
+                            <span>ശക്തി</span>
+                            <input type="text" value={draft.strength} onChange={(event) => updateScheduleDraft(index, { strength: event.target.value })} placeholder="കുറിപ്പടിയിൽ ഉള്ളതുപോലെ, ഉദാ. 500 mg" autoComplete="off" />
+                          </label>
+                        </div>
+                      </details>
+                      <div className="cl-routine-form-grid">
+                        <label>
+                          <span>ഡോസ് (കുറിപ്പടിയിൽ ഉള്ളതുപോലെ)</span>
+                          <input type="text" value={draft.dose} onChange={(event) => updateScheduleDraft(index, { dose: event.target.value })} placeholder="ഡോസ് വ്യക്തമല്ലെങ്കിൽ ചോദിച്ച് ഉറപ്പാക്കുക" autoComplete="off" />
+                        </label>
+                        <p className="cl-routine-source-food">
+                          <strong>ഭക്ഷണ നിർദ്ദേശം:</strong>{" "}
+                          {medicine.food_instruction ? valueForMalayalamSpeech("ഭക്ഷണ നിർദ്ദേശം", medicine.food_instruction) : "വായിച്ചെടുക്കാനായില്ല; ഊഹിച്ചിട്ടില്ല."}
+                        </p>
+                      </div>
+
+                      <fieldset className="cl-routine-times">
+                        <legend>സ്ഥിരീകരിച്ച സമയം(ങ്ങൾ)</legend>
+                        <div className="cl-routine-time-options">
+                          {times.map((time) => (
+                            <label key={time.value}>
+                              <input
+                                type="checkbox"
+                                checked={draft.confirmed_times.includes(time.value)}
+                                onChange={(event) => {
+                                  const nextTimes = event.target.checked
+                                    ? [...draft.confirmed_times, time.value]
+                                    : draft.confirmed_times.filter((value) => value !== time.value);
+                                  updateScheduleDraft(index, { confirmed_times: nextTimes });
+                                }}
+                              />
+                              <span>{time.label}</span>
+                            </label>
+                          ))}
+                        </div>
+                        <p>ഈ മരുന്നിന്റെ യഥാർത്ഥ കുറിപ്പടിയുമായി സമയം താരതമ്യം ചെയ്യുക.</p>
+                      </fieldset>
+
+                      {shorthand && (
+                        <div className="cl-notation-confirmation">
+                          <p>
+                            കുറിപ്പടിയിലെ <strong>{shorthand.notation}</strong> എന്ന രേഖ:
+                            രാവിലെ 1 · ഉച്ചയ്ക്ക് 0 (മരുന്നില്ല) · രാത്രി 1.
+                          </p>
+                          <label>
+                            <input
+                              type="checkbox"
+                              checked={Boolean(notationConfirmations[index])}
+                              onChange={(event) => {
+                                setNotationConfirmations((previous) => ({
+                                  ...previous,
+                                  [index]: event.target.checked,
+                                }));
+                                setScheduleErrors((previous) => ({ ...previous, [index]: "" }));
+                              }}
+                            />
+                            <span>ഈ വ്യാഖ്യാനം ഈ മരുന്നിന്റെ യഥാർത്ഥ കുറിപ്പടിയുമായി പൊരുത്തപ്പെടുന്നു.</span>
+                          </label>
+                          <small>മറ്റു മരുന്നുകൾക്ക് 1-0-1 സ്വയം ബാധകമാക്കില്ല. ഡോസിന്റെ യൂണിറ്റും കുറിപ്പടിയുമായി ഉറപ്പാക്കുക.</small>
+                        </div>
+                      )}
+
+                      <p className="cl-routine-confirm-note">
+                        വിവരങ്ങൾ ശരിയാണെങ്കിൽ മാത്രം സ്ഥിരീകരിച്ച് തുടരുക.
+                      </p>
+
+                      <div className="cl-routine-actions">
+                        <button
+                          type="button"
+                          className="cl-routine-submit"
+                          onClick={() => submitDailyRoutine(entry, index)}
+                          disabled={Boolean(scheduleLoading[index])}
+                        >
+                          <CalendarDays size={16} />
+                          {scheduleLoading[index] ? "ക്രമം തയ്യാറാക്കുന്നു…" : "സ്ഥിരീകരിച്ച് ക്രമം തയ്യാറാക്കുക"}
+                        </button>
+                        {result?.status === "ready_for_display" && (
+                          <span className="cl-routine-ready">സ്ഥിരീകരിച്ച വിവരങ്ങളിൽ നിന്ന് ക്രമം തയ്യാറാക്കി</span>
+                        )}
+                      </div>
+
+                      {scheduleErrors[index] && <p className="cl-routine-error" role="alert">{scheduleErrors[index]}</p>}
+
+                      {result?.status === "ready_for_display" && Array.isArray(result.schedule) && (
+                        <div className="cl-routine-output">
+                          <h4>ദൈനംദിന മരുന്ന് ക്രമം</h4>
+                          {result.schedule.map((item, itemIndex) => (
+                            <div className="cl-routine-output-row" key={`routine-row-${item.time}-${itemIndex}`}>
+                              <strong>{({ morning: "രാവിലെ", afternoon: "ഉച്ചയ്ക്ക്", evening: "വൈകുന്നേരം", night: "രാത്രി" })[item.time] || item.time}</strong>
+                              <span>{item.medicine_name} · {item.strength} · {item.dose}</span>
+                              {item.instruction && <small>ഭക്ഷണ നിർദ്ദേശം: {item.instruction}</small>}
+                            </div>
+                          ))}
+                          <p>സ്ഥിരീകരിച്ച വിവരങ്ങൾ ക്രമീകരിച്ച് കാണിക്കാനാണ് ഇത്. ഇത് കുറിപ്പടിയോ ചികിത്സാ അംഗീകാരമോ ഓർമ്മപ്പെടുത്തൽ സേവനമോ അല്ല.</p>
+                        </div>
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
+              <section className="cl-complete-routine-summary" aria-live="polite">
+                <div className="cl-routine-heading">
+                  <h3>സമ്പൂർണ്ണ ദൈനംദിന മരുന്ന് പട്ടിക</h3>
+                  <p>താഴെ എല്ലാ മരുന്നുകളും സമയം അനുസരിച്ച് ഒരുമിച്ച് കാണാം.</p>
+                </div>
+
+                {!completeRoutine.allReady && (
+                  <p className="cl-routine-summary-pending">
+                    {completeRoutine.readyCount} / {completeRoutine.medicineCount} മരുന്നുകളുടെ ക്രമം തയ്യാറായി.
+                    പൂർണ്ണ പട്ടികയ്ക്കായി ഓരോ മരുന്നിന്റെയും ക്രമം തയ്യാറാക്കുക.
+                  </p>
+                )}
+
+                {completeRoutine.allReady && (
+                  <div className="cl-complete-routine-groups">
+                    {completeRoutine.groups.map((group) => (
+                      <div className="cl-complete-routine-group" key={group.slot}>
+                        <h4>{group.label}</h4>
+                        {group.items.length > 0 ? (
+                          <div className="cl-complete-routine-items">
+                            {group.items.map((item, itemIndex) => (
+                              <div className="cl-complete-routine-item" key={`all-${group.slot}-${item.sourceIndex}-${itemIndex}`}>
+                                <strong>{item.medicine_name}</strong>
+                                <span>{item.strength} · {item.dose}</span>
+                                {item.instruction && (
+                                  <small>ഭക്ഷണ നിർദ്ദേശം: {valueForMalayalamSpeech("ഭക്ഷണ നിർദ്ദേശം", item.instruction)}</small>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="cl-routine-empty-slot">ഈ സമയത്തേക്ക് സ്ഥിരീകരിച്ച മരുന്നുകൾ പട്ടികയിൽ ചേർത്തിട്ടില്ല.</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <p className="cl-routine-disclaimer">
+                  1-0-1 രേഖയുള്ള മരുന്നുകൾക്ക് മാത്രം രാവിലെ 1 · ഉച്ചയ്ക്ക് 0 · രാത്രി 1 എന്ന വ്യാഖ്യാനം കാണിക്കും. ഈ പട്ടിക കുറിപ്പടിയും നിങ്ങളുടെ സ്ഥിരീകരണവും അടിസ്ഥാനമാക്കിയതാണ്; സംശയമുള്ള വിവരങ്ങൾ ഡോക്ടറെയോ ഫാർമസിസ്റ്റിനെയോ ചോദിച്ച് ഉറപ്പാക്കുക.
+                </p>
+              </section>
+
+              <section className="cl-whatsapp-reminder">
+                <div className="cl-whatsapp-heading">
+                  <span className="cl-review-eyebrow">WhatsApp</span>
+                  <h3>ദിവസേന WhatsApp ഓർമ്മപ്പെടുത്തൽ</h3>
+                  <p>തിരഞ്ഞെടുത്ത സമയത്ത് ആ സമയത്തേക്കുള്ള എല്ലാ മരുന്നുകളും സന്ദേശമായി ലഭിക്കാൻ സജ്ജമാക്കുക.</p>
+                </div>
+
+                {!completeRoutine.allReady ? (
+                  <p className="cl-whatsapp-help">ആദ്യം എല്ലാ മരുന്നുകളുടെയും ദിനചര്യ തയ്യാറാക്കുക.</p>
+                ) : (
+                  <>
+                    <label className="cl-whatsapp-phone">
+                      <span>WhatsApp നമ്പർ (രാജ്യകോഡോടെ)</span>
+                      <input
+                        type="tel"
+                        value={whatsappPhone}
+                        onChange={(event) => setWhatsappPhone(event.target.value)}
+                        placeholder="+919876543210"
+                        autoComplete="tel"
+                      />
+                    </label>
+
+                    <div className="cl-whatsapp-times">
+                      <h4>സന്ദേശം അയയ്ക്കേണ്ട സമയം</h4>
+                      <p>മരുന്നുള്ള ഓരോ സമയവിഭാഗത്തിനും യഥാർത്ഥ സമയം തിരഞ്ഞെടുക്കുക.</p>
+                      {completeRoutine.groups.filter((group) => group.items.length > 0).map((group) => (
+                        <label key={group.slot}>
+                          <span>{group.label} · {group.items.length} മരുന്നുകൾ</span>
+                          <input
+                            type="time"
+                            value={whatsappTimes[group.slot] || ""}
+                            onChange={(event) => {
+                              setWhatsappTimes((previous) => ({ ...previous, [group.slot]: event.target.value }));
+                              setWhatsappStatus("");
+                            }}
+                            required
+                          />
+                        </label>
+                      ))}
+                    </div>
+
+                    <label className="cl-whatsapp-consent">
+                      <input
+                        type="checkbox"
+                        checked={whatsappConsent}
+                        onChange={(event) => setWhatsappConsent(event.target.checked)}
+                      />
+                      <span>ഈ നമ്പറിന്റെ ഉടമയ്ക്ക് WhatsApp മരുന്ന് ഓർമ്മപ്പെടുത്തലുകൾ ലഭിക്കാൻ വ്യക്തമായ അനുമതിയുണ്ട്.</span>
+                    </label>
+
+                    <p className="cl-whatsapp-help">
+                      WhatsApp Business Cloud API, access token, phone number ID, അംഗീകരിച്ച Malayalam utility template എന്നിവ Safety API-യിൽ ക്രമീകരിച്ചിരിക്കണം.
+                    </p>
+
+                    <button
+                      type="button"
+                      className="cl-routine-submit"
+                      onClick={saveWhatsAppReminders}
+                      disabled={whatsappSaving}
+                    >
+                      <Phone size={16} />
+                      {whatsappSaving ? "സജ്ജമാക്കുന്നു…" : "WhatsApp അറിയിപ്പുകൾ സജ്ജമാക്കുക"}
+                    </button>
+                  </>
+                )}
+
+                {whatsappStatus && <p className="cl-whatsapp-status" role="status" aria-live="polite">{whatsappStatus}</p>}
+              </section>
+            </section>
+          )}
 
           {/* PANEL FOOTER */}
           <div className="cl-panel-footer">
