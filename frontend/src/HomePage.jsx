@@ -46,7 +46,7 @@ const steps = [
   },
   {
     label: "3. വിവരങ്ങൾ പരിശോധിക്കുക",
-    subtitle: "(Verify Information)",
+    subtitle: "കുറിപ്പടി പരിശോധിക്കുക",
     icon: ShieldCheck,
   },
   {
@@ -481,28 +481,21 @@ export default function HomePage({
     return scheduleDrafts[index] || {
       medicine_name: medicine?.medicine_name || "",
       strength: medicine?.strength || "",
-      dose: "",
+      dose: medicine?.prescribed_dose || medicine?.original_dosage_notation || "",
       confirmed_times: [],
-      food_instruction: "",
-      instructions_confirmed: false,
     };
   }
 
   function updateScheduleDraft(index, patch) {
-    const changesConfirmation = !Object.prototype.hasOwnProperty.call(patch, "instructions_confirmed");
     setScheduleDrafts((previous) => {
       const medicine = reviewResult?.medicines?.[index]?.extracted_medicine;
       const current = previous[index] || {
         medicine_name: medicine?.medicine_name || "",
         strength: medicine?.strength || "",
-        dose: "",
+        dose: medicine?.prescribed_dose || medicine?.original_dosage_notation || "",
         confirmed_times: [],
-        food_instruction: "",
-        instructions_confirmed: false,
       };
-      const updated = { ...current, ...patch };
-      if (changesConfirmation) updated.instructions_confirmed = false;
-      return { ...previous, [index]: updated };
+      return { ...previous, [index]: { ...current, ...patch } };
     });
     setScheduleResults((previous) => {
       const next = { ...previous };
@@ -541,14 +534,6 @@ export default function HomePage({
       return;
     }
 
-    if (!draft.instructions_confirmed) {
-      setScheduleErrors((previous) => ({
-        ...previous,
-        [index]: "ഡോസും തിരഞ്ഞെടുത്ത ഓരോ സമയവും കുറിപ്പടിയിലോ ആരോഗ്യപ്രവർത്തകൻ സ്ഥിരീകരിച്ച നിർദ്ദേശങ്ങളിലോ ഉള്ളതുപോലെയാണെന്ന് ഉറപ്പാക്കുക.",
-      }));
-      return;
-    }
-
     setScheduleLoading((previous) => ({ ...previous, [index]: true }));
     try {
       const response = await fetch(`${API_BASE_URL}/schedule`, {
@@ -560,7 +545,7 @@ export default function HomePage({
           dose: draft.dose.trim(),
           confirmed_times: draft.confirmed_times,
           instructions_confirmed: true,
-          confirmed_food_instruction: draft.food_instruction.trim() || null,
+          confirmed_food_instruction: medicine.food_instruction || null,
         }),
       });
       const payload = await response.json().catch(() => ({}));
@@ -1116,11 +1101,11 @@ export default function HomePage({
             <section className="cl-review-results" id="review-results" aria-live="polite">
               <div className="cl-review-heading">
                 <div>
-                  <span className="cl-review-eyebrow">REVIEW REQUIRED</span>
-                  <h2>Prescription analysis results</h2>
-                  <p>Compare each extracted field with the original prescription. Text similarity is not clinical verification.</p>
+                  <span className="cl-review-eyebrow">പരിശോധന ആവശ്യമാണ്</span>
+                  <h2>കുറിപ്പടി വിശകലന ഫലം</h2>
+                  <p>ഓരോ വിവരവും യഥാർത്ഥ കുറിപ്പടിയുമായി താരതമ്യം ചെയ്യുക. പട്ടികയിലെ സാമ്യം മാത്രം മരുന്ന് ശരിയാണെന്നതിന് തെളിവല്ല.</p>
                 </div>
-                <span className="cl-review-status">Human review required</span>
+                <span className="cl-review-status">നിങ്ങളുടെ പരിശോധന ആവശ്യമാണ്</span>
               </div>
               {Array.isArray(reviewResult.medicines) && reviewResult.medicines.length > 0 ? (
                 <div className="cl-review-list">
@@ -1132,20 +1117,20 @@ export default function HomePage({
                       <article className="cl-review-medicine" key={`${medicine.medicine_name || "medicine"}-${index}`}>
                         <div className="cl-review-medicine-top">
                           <div>
-                            <span className="cl-review-index">MEDICINE {index + 1}</span>
-                            <h3>{medicine.medicine_name || "Name not readable"}</h3>
+                            <span className="cl-review-index">മരുന്ന് {index + 1}</span>
+                            <h3>{medicine.medicine_name || "പേര് വായിക്കാനായില്ല"}</h3>
                           </div>
-                          <span className="cl-review-pill">Needs review</span>
+                          <span className="cl-review-pill">പരിശോധന ആവശ്യമാണ്</span>
                         </div>
                         <dl className="cl-review-fields">
-                          <div><dt>Strength</dt><dd>{medicine.strength || "Not extracted"}</dd></div>
-                          <div><dt>Original dose notation</dt><dd>{medicine.original_dosage_notation || medicine.prescribed_dose || "Not extracted"}</dd></div>
-                          <div><dt>Frequency (OCR)</dt><dd>{medicine.frequency || "Not extracted"}</dd></div>
-                          <div><dt>Food instruction (OCR)</dt><dd>{medicine.food_instruction || "Not extracted"}</dd></div>
-                          <div><dt>Duration (OCR)</dt><dd>{medicine.duration || "Not extracted"}</dd></div>
-                          <div><dt>OCR uncertainty</dt><dd>{medicine.uncertainty || "Review required"}</dd></div>
+                          <div><dt>ശക്തി</dt><dd>{medicine.strength || "വായിക്കാനായില്ല"}</dd></div>
+                          <div><dt>കുറിപ്പടിയിലെ ഡോസ് രേഖ</dt><dd>{medicine.original_dosage_notation || medicine.prescribed_dose || "വായിക്കാനായില്ല"}</dd></div>
+                          <div><dt>ആവൃത്തി</dt><dd>{medicine.frequency || "വായിക്കാനായില്ല"}</dd></div>
+                          <div><dt>ഭക്ഷണ നിർദ്ദേശം</dt><dd>{medicine.food_instruction || "വായിക്കാനായില്ല"}</dd></div>
+                          <div><dt>കാലയളവ്</dt><dd>{medicine.duration || "വായിക്കാനായില്ല"}</dd></div>
+                          <div><dt>വായനയിലെ വ്യക്തത</dt><dd>{medicine.uncertainty === "low" ? "കുറഞ്ഞ അനിശ്ചിതത്വം" : medicine.uncertainty === "none" ? "വ്യക്തമായ അനിശ്ചിതത്വം കണ്ടെത്തിയില്ല" : "പരിശോധന ആവശ്യമാണ്"}</dd></div>
                         </dl>
-                        <p className="cl-review-safety-message"><ShieldCheck size={16} />{identity.message || "This information has not been clinically verified."}</p>
+                        <p className="cl-review-safety-message"><ShieldCheck size={16} />{identity.status === "safety_service_unavailable" ? "സുരക്ഷാ സേവനം ലഭ്യമല്ല. ഈ മരുന്ന് സ്ഥിരീകരിച്ചിട്ടില്ല." : identity.status === "verified" ? "പരിശോധിച്ച രേഖയുമായി മരുന്നിന്റെ പേര് പൊരുത്തപ്പെട്ടു." : identity.status === "identity_match_unreviewed" ? "മരുന്നിന്റെ രേഖ കണ്ടെത്തി; എന്നാൽ വിദഗ്ധ പരിശോധന പൂർത്തിയായിട്ടില്ല." : identity.status === "awaiting_confirmation" ? "മരുന്നിന്റെ പേരും ശക്തിയും യഥാർത്ഥ കുറിപ്പടിയുമായി താരതമ്യം ചെയ്യുക." : "കൃത്യമായ പൊരുത്തം കണ്ടെത്തിയില്ല. ഫാർമസിസ്റ്റിന്റെ സഹായം തേടുക."}</p>
                         <div className="cl-verification-check">
                           <label>
                             <input
@@ -1181,7 +1166,7 @@ export default function HomePage({
                           <small>ഈ പരിശോധന കുറിപ്പടിയിലെ വിവരങ്ങൾ ശരിയായി വായിച്ചിട്ടുണ്ടോ എന്നതിനുള്ളതാണ്; ചികിത്സയ്ക്ക് അംഗീകാരം നൽകുന്നതല്ല.</small>
                         </div>
                         <div className="cl-candidates-heading">
-                          <strong>Possible catalogue matches</strong><span>{candidates.length} candidates</span>
+                          <strong>സമാന മരുന്ന് രേഖകൾ</strong><span>{candidates.length} നിർദ്ദേശങ്ങൾ</span>
                         </div>
                         {candidates.length ? (
                           <div className="cl-candidate-list">
@@ -1189,19 +1174,19 @@ export default function HomePage({
                               <div className="cl-candidate" key={`${candidate.id || candidate.name}-${ci}`}>
                                 <div className="cl-candidate-title">
                                   <strong>{candidate.name || "Unnamed item"}</strong>
-                                  <span>Similarity: {Number(candidate.similarity_score || 0).toFixed(3)}</span>
+                                  <span>പാഠസാമ്യം: {Number(candidate.similarity_score || 0).toFixed(3)}</span>
                                 </div>
-                                <p>{[candidate.short_composition1, candidate.short_composition2, candidate.pack_size_label, candidate.is_discontinued ? "Marked discontinued in catalogue" : ""].filter(Boolean).join(" · ") || "Composition unavailable"}</p>
-                                <small>Suggestion only. Confirm medicine, strength and formulation against the original.</small>
+                                <p>{[candidate.short_composition1, candidate.short_composition2, candidate.pack_size_label, candidate.is_discontinued ? "പട്ടികയിൽ നിർത്തലാക്കിയതായി രേഖപ്പെടുത്തിയിരിക്കുന്നു" : ""].filter(Boolean).join(" · ") || "Composition unavailable"}</p>
+                                <small>ഇത് ഒരു നിർദ്ദേശം മാത്രമാണ്. മരുന്നിന്റെ പേര്, ശക്തി, രൂപം എന്നിവ യഥാർത്ഥ കുറിപ്പടിയുമായി പരിശോധിക്കുക.</small>
                               </div>
                             ))}
                           </div>
-                        ) : <p className="cl-review-empty">No candidates returned. Do not guess; request professional review.</p>}
+                        ) : <p className="cl-review-empty">പൊരുത്തങ്ങൾ കണ്ടെത്തിയില്ല. ഊഹിക്കാതെ ഡോക്ടറുടെയോ ഫാർമസിസ്റ്റിന്റെയോ സഹായം തേടുക.</p>}
                       </article>
                     );
                   })}
                 </div>
-              ) : <p className="cl-review-empty">No medicines were extracted. Check image quality and request professional review.</p>}
+              ) : <p className="cl-review-empty">മരുന്നുകൾ വായിച്ചെടുക്കാനായില്ല. ചിത്രം പരിശോധിച്ച് വീണ്ടും ശ്രമിക്കുക; ആവശ്യമെങ്കിൽ വിദഗ്ധ സഹായം തേടുക.</p>}
               {Array.isArray(reviewResult.medicines) && reviewResult.medicines.length > 0 && (
                 <div className="cl-workflow-next">
                   <button
@@ -1225,12 +1210,12 @@ export default function HomePage({
               <div className="cl-routine-heading">
                 <span className="cl-review-eyebrow">ഘട്ടം 4 · ദൈനംദിന ക്രമം</span>
                 <h2>ദൈനംദിന മരുന്ന് ക്രമം</h2>
-                <p>വ്യക്തമായി സ്ഥിരീകരിച്ച നിർദ്ദേശങ്ങൾ മാത്രം ഉപയോഗിച്ച് ക്രമം തയ്യാറാക്കുക. 1-0-1 പോലുള്ള കുറിപ്പുകളെ CareLekha സ്വയം സമയങ്ങളാക്കി മാറ്റില്ല.</p>
+                <p>യഥാർത്ഥ കുറിപ്പടിയിൽ വ്യക്തമായി സ്ഥിരീകരിച്ച സമയങ്ങൾ മാത്രം തിരഞ്ഞെടുക്കുക.</p>
               </div>
 
               <div className="cl-routine-warning">
                 <ShieldCheck size={17} />
-                <span>രാവിലെ, ഉച്ചയ്ക്ക്, വൈകുന്നേരം, രാത്രി എന്നീ സമയങ്ങൾ കുറിപ്പടിയിലോ ആരോഗ്യപ്രവർത്തകന്റെ നിർദ്ദേശത്തിലോ വ്യക്തമായി സ്ഥിരീകരിച്ചിട്ടുണ്ടെങ്കിൽ മാത്രം തിരഞ്ഞെടുക്കുക. ഈ ക്രമം വിവരങ്ങൾ ക്രമീകരിക്കുക മാത്രമാണ് ചെയ്യുന്നത്; ഏത് മരുന്ന് എപ്പോൾ കഴിക്കണമെന്ന് തീരുമാനിക്കുന്നില്ല.</span>
+                <span>കുറിപ്പടിയിലോ ഡോക്ടർ/ഫാർമസിസ്റ്റിന്റെ നിർദ്ദേശത്തിലോ വ്യക്തമാക്കിയ സമയം മാത്രം തിരഞ്ഞെടുക്കുക. സംശയമുണ്ടെങ്കിൽ സമയം തിരഞ്ഞെടുക്കാതെ സഹായം തേടുക.</span>
               </div>
 
               <div className="cl-routine-list">
@@ -1285,16 +1270,10 @@ export default function HomePage({
                             autoComplete="off"
                           />
                         </label>
-                        <label>
-                          <span>ഭക്ഷണവുമായി ബന്ധപ്പെട്ട നിർദ്ദേശം (ഐച്ഛികം)</span>
-                          <input
-                            type="text"
-                            value={draft.food_instruction}
-                            onChange={(event) => updateScheduleDraft(index, { food_instruction: event.target.value })}
-                            placeholder="വ്യക്തമായി സ്ഥിരീകരിച്ചിട്ടുണ്ടെങ്കിൽ മാത്രം"
-                            autoComplete="off"
-                          />
-                        </label>
+                        <p className="cl-routine-source-food">
+                          <strong>ഭക്ഷണ നിർദ്ദേശം:</strong>{" "}
+                          {medicine.food_instruction || "വായിച്ചെടുക്കാനായില്ല; ഊഹിച്ചിട്ടില്ല."}
+                        </p>
                       </div>
 
                       <fieldset className="cl-routine-times">
@@ -1316,17 +1295,12 @@ export default function HomePage({
                             </label>
                           ))}
                         </div>
-                        <p>കുറിപ്പടിയിൽ 1-0-1 അല്ലെങ്കിൽ “ദിവസത്തിൽ രണ്ടുതവണ” എന്ന് കണ്ടതുകൊണ്ട് മാത്രം സമയം തിരഞ്ഞെടുക്കരുത്. യഥാർത്ഥ സമയം പ്രത്യേകം സ്ഥിരീകരിക്കുക.</p>
+                        <p>1-0-1 പോലുള്ള ഡോസ് രേഖകളിൽ നിന്ന് സമയം സ്വയം കണക്കാക്കില്ല.</p>
                       </fieldset>
 
-                      <label className="cl-routine-confirm">
-                        <input
-                          type="checkbox"
-                          checked={Boolean(draft.instructions_confirmed)}
-                          onChange={(event) => updateScheduleDraft(index, { instructions_confirmed: event.target.checked })}
-                        />
-                        <span>മരുന്നിന്റെ പേര്, ശക്തി, ഡോസ്, തിരഞ്ഞെടുത്ത സമയങ്ങൾ, ഭക്ഷണ നിർദ്ദേശം എന്നിവ യഥാർത്ഥ കുറിപ്പടിയിലോ യോഗ്യനായ ആരോഗ്യപ്രവർത്തകൻ സ്ഥിരീകരിച്ച നിർദ്ദേശങ്ങളിലോ ഉള്ളതുപോലെയാണെന്ന് ഞാൻ ഉറപ്പാക്കുന്നു. ഇത് വിവരങ്ങളുടെ സ്ഥിരീകരണമാണ്; ചികിത്സയ്ക്ക് അംഗീകാരമല്ല.</span>
-                      </label>
+                      <p className="cl-routine-confirm-note">
+                        സമയംയും ഡോസും ശരിയാണെന്ന് ഉറപ്പാക്കിയ ശേഷം മാത്രം ബട്ടൺ അമർത്തുക.
+                      </p>
 
                       <div className="cl-routine-actions">
                         <button
@@ -1336,7 +1310,7 @@ export default function HomePage({
                           disabled={Boolean(scheduleLoading[index])}
                         >
                           <CalendarDays size={16} />
-                          {scheduleLoading[index] ? "ക്രമം തയ്യാറാക്കുന്നു…" : "ദൈനംദിന ക്രമം തയ്യാറാക്കുക"}
+                          {scheduleLoading[index] ? "ക്രമം തയ്യാറാക്കുന്നു…" : "സ്ഥിരീകരിച്ച് ക്രമം തയ്യാറാക്കുക"}
                         </button>
                         {result?.status === "ready_for_display" && (
                           <span className="cl-routine-ready">സ്ഥിരീകരിച്ച വിവരങ്ങളിൽ നിന്ന് ക്രമം തയ്യാറാക്കി</span>
@@ -1448,7 +1422,7 @@ export default function HomePage({
                 <button
                   type="button"
                   className="cl-routine-submit"
-                  onClick={() => setMessage("ആറാം ഘട്ടമായ പ്രിന്റ് ചാർട്ട് പൂർണ്ണമായി ബന്ധിപ്പിച്ചിട്ടില്ല.")}
+                  onClick={() => setMessage("പ്രിന്റ് ചാർട്ട് സൗകര്യം ഉടൻ ലഭ്യമാകും.")}
                 >
                   അടുത്ത ഘട്ടം: പ്രിന്റ് ചാർട്ട്
                   <ChevronRight size={17} />
