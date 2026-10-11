@@ -67,6 +67,50 @@ const steps = [
 ];
 
 /*
+  Translate only a small set of unambiguous common phrases for speech.
+  Drug names, strengths and dose notation remain exactly as extracted.
+*/
+function valueForMalayalamSpeech(label, rawValue) {
+  const original = String(rawValue ?? "").trim();
+  const normalized = original.toLowerCase().replace(/[.!]+$/g, "").trim();
+  const phraseMap = {
+    "ആവൃത്തി": {
+      "once daily": "ദിവസത്തിൽ ഒരിക്കൽ",
+      "once a day": "ദിവസത്തിൽ ഒരിക്കൽ",
+      "twice daily": "ദിവസത്തിൽ രണ്ട് തവണ",
+      "twice a day": "ദിവസത്തിൽ രണ്ട് തവണ",
+      "three times daily": "ദിവസത്തിൽ മൂന്ന് തവണ",
+      "three times a day": "ദിവസത്തിൽ മൂന്ന് തവണ",
+      "thrice daily": "ദിവസത്തിൽ മൂന്ന് തവണ",
+      "four times daily": "ദിവസത്തിൽ നാല് തവണ",
+      "four times a day": "ദിവസത്തിൽ നാല് തവണ",
+    },
+    "ഭക്ഷണ നിർദ്ദേശം": {
+      "after meals": "ഭക്ഷണത്തിന് ശേഷം",
+      "after meal": "ഭക്ഷണത്തിന് ശേഷം",
+      "after food": "ഭക്ഷണത്തിന് ശേഷം",
+      "before meals": "ഭക്ഷണത്തിന് മുമ്പ്",
+      "before meal": "ഭക്ഷണത്തിന് മുമ്പ്",
+      "before food": "ഭക്ഷണത്തിന് മുമ്പ്",
+      "with food": "ഭക്ഷണത്തോടൊപ്പം",
+      "with meals": "ഭക്ഷണത്തോടൊപ്പം",
+      "empty stomach": "വെറും വയറ്റിൽ",
+    },
+  };
+
+  if (phraseMap[label]?.[normalized]) return phraseMap[label][normalized];
+
+  if (label === "ചികിത്സാ കാലയളവ്") {
+    const match = normalized.match(/^(\d+)\s+days?$/);
+    if (match) return `${match[1]} ദിവസം`;
+    const weekMatch = normalized.match(/^(\d+)\s+weeks?$/);
+    if (weekMatch) return `${weekMatch[1]} ആഴ്ച`;
+  }
+
+  return original;
+}
+
+/*
   Read patient details safely from localStorage.
   Multiple possible keys are checked to support
   different versions of the patient-details form.
@@ -433,7 +477,7 @@ export default function HomePage({
 
     const spokenText = [
       "ശ്രദ്ധിക്കുക. ഇത് കുറിപ്പടിയിൽ നിന്ന് വായിച്ചെടുത്ത വിവരങ്ങളാണ്. ഇത് ഡോക്ടറുടെ ചികിത്സാ അനുമതിയല്ല.",
-      ...fields.map(([label, value]) => `${label}: ${value}.`),
+      ...fields.map(([label, value]) => `${label}: ${valueForMalayalamSpeech(label, value)}.`),
       "വ്യക്തമല്ലാത്ത വിവരങ്ങൾ ഊഹിച്ചിട്ടില്ല. മരുന്നിന്റെ ഉപയോഗത്തെക്കുറിച്ച് സംശയമുണ്ടെങ്കിൽ ഡോക്ടറെയോ ഫാർമസിസ്റ്റിനെയോ സമീപിക്കുക."
     ].join(" ");
 
