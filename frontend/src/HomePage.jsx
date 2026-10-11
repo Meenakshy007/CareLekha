@@ -489,13 +489,18 @@ export default function HomePage({
   }
 
   function updateScheduleDraft(index, patch) {
-    setScheduleDrafts((previous) => ({
-      ...previous,
-      [index]: {
-        ...getScheduleDraft(index, reviewResult?.medicines?.[index]?.extracted_medicine),
-        ...patch,
-      },
-    }));
+    setScheduleDrafts((previous) => {
+      const medicine = reviewResult?.medicines?.[index]?.extracted_medicine;
+      const current = previous[index] || {
+        medicine_name: medicine?.medicine_name || "",
+        strength: medicine?.strength || "",
+        dose: "",
+        confirmed_times: [],
+        food_instruction: "",
+        instructions_confirmed: false,
+      };
+      return { ...previous, [index]: { ...current, ...patch } };
+    });
     setScheduleResults((previous) => {
       const next = { ...previous };
       delete next[index];
@@ -1137,6 +1142,20 @@ export default function HomePage({
                                 }));
                                 if (!event.target.checked && speakingMedicineIndex === index) {
                                   stopMedicineAudio();
+                                }
+                                if (!event.target.checked) {
+                                  setScheduleResults((previous) => {
+                                    const next = { ...previous };
+                                    delete next[index];
+                                    return next;
+                                  });
+                                  setScheduleDrafts((previous) => ({
+                                    ...previous,
+                                    [index]: {
+                                      ...getScheduleDraft(index, medicine),
+                                      instructions_confirmed: false,
+                                    },
+                                  }));
                                 }
                                 setAudioStatus("");
                               }}
