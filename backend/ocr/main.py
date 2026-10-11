@@ -26,7 +26,7 @@ app.add_middleware(
 )
 
 ML_API_URL = os.getenv("CARELEKHA_ML_API_URL", "http://127.0.0.1:8001")
-SAFETY_API_URL = os.getenv("CARELEKHA_SAFETY_API_URL", "http://127.0.0.1:8002")
+SAFETY_API_URL = os.getenv("CARELEKHA_SAFETY_API_URL", "http://127.0.0.1:8003")
 
 # Try the current stable Flash model first, then automatically fall back if it is overloaded.
 MODEL_FALLBACKS = (
