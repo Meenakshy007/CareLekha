@@ -141,6 +141,8 @@ export default function HomePage({
   const [isConverting, setIsConverting] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [message, setMessage] = useState("");
+  const [reviewResult, setReviewResult] = useState(null);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const conversionTimer = useRef(null);
   const fileInputRef = useRef(null);
@@ -291,16 +293,12 @@ export default function HomePage({
 
     if (!file) return;
 
-    const allowedTypes = [
-      "application/pdf",
-      "image/jpeg",
-      "image/png",
-      "image/webp",
-    ];
+    // The current OCR endpoint supports image files only, not PDFs.
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
 
     if (!allowedTypes.includes(file.type)) {
       setMessage(
-        "Please select a PDF, JPG, PNG, or WEBP file."
+        "Please select a JPG, PNG, or WEBP image. PDF extraction is not supported yet."
       );
 
       event.target.value = "";
@@ -318,69 +316,68 @@ export default function HomePage({
 
     setUploadedFile(file);
     setInputMode("upload");
+    setReviewResult(null);
     setMessage("");
   }
 
   /*
-    Save the selected input for the next processing step.
-
-    Actual prescription extraction requires a connected
-    backend or OCR service. This frontend does not invent
-    medical information.
+    Analyze the uploaded image with OCR, ML candidate retrieval,
+    and safety identity review. ML candidates never overwrite OCR text.
   */
-  function handleContinue() {
+  async function handleContinue() {
     setMessage("");
+    setReviewResult(null);
 
     if (inputMode === "upload" && !uploadedFile) {
-      setMessage(
-        "Please upload a prescription first."
-      );
+      setMessage("Please upload a prescription image first.");
       return;
     }
 
-    if (inputMode === "text" && !manualText.trim()) {
-      setMessage(
-        "Please enter the prescription text first."
-      );
+    if (inputMode === "text") {
+      setMessage("Text-only review is not connected yet. Please use an image upload for this demo.");
       return;
     }
 
+    if (!["image/jpeg", "image/png", "image/webp"].includes(uploadedFile.type)) {
+      setMessage("Only JPG, PNG, and WEBP images are supported.");
+      return;
+    }
+
+    setIsProcessing(true);
     try {
-      const inputInformation = {
-        inputMode,
-        manualText:
-          inputMode === "text"
-            ? manualText.trim()
-            : "",
-        fileName:
-          inputMode === "upload" && uploadedFile
-            ? uploadedFile.name
-            : "",
-        fileType:
-          inputMode === "upload" && uploadedFile
-            ? uploadedFile.type
-            : "",
-        submittedAt: new Date().toISOString(),
-      };
+      const formData = new FormData();
+      formData.append("file", uploadedFile);
+      const response = await fetch("http://127.0.0.1:8000/extract-and-review", {
+        method: "POST",
+        body: formData,
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.detail || `Prescription analysis failed (HTTP ${response.status}).`);
+      }
 
-      /*
-        The actual file is not saved in localStorage.
-        Only its name and type are saved.
-      */
-      localStorage.setItem(
-        "carelekha-prescription-input",
-        JSON.stringify(inputInformation)
-      );
-
+      setReviewResult(payload);
       setActiveStep(2);
+      setMessage("Analysis finished. Review every field against the original prescription. Matches are suggestions, not verified identities.");
 
-      setMessage(
-        "Your input has been saved. Prescription analysis requires a connected OCR or backend service."
-      );
-    } catch {
-      setMessage(
-        "Unable to save your input. Please try again."
-      );
+      try {
+        localStorage.setItem("carelekha-prescription-input", JSON.stringify({
+          inputMode: "upload",
+          fileName: uploadedFile.name,
+          fileType: uploadedFile.type,
+          submittedAt: new Date().toISOString(),
+          processingStatus: "review_required",
+        }));
+      } catch (storageError) {
+        console.warn("Could not save prescription metadata:", storageError);
+      }
+    } catch (error) {
+      console.error("CareLekha review failed:", error);
+      setMessage(error instanceof TypeError
+        ? "Cannot connect to the OCR API. Confirm it is running on port 8000 and CORS is enabled."
+        : error.message || "Prescription analysis failed. Please try again.");
+    } finally {
+      setIsProcessing(false);
     }
   }
 
@@ -797,7 +794,7 @@ export default function HomePage({
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp"
+                accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
                 onChange={handleFileChange}
                 hidden
               />
@@ -877,13 +874,69 @@ export default function HomePage({
 
           {/* STATUS MESSAGE */}
           {message && (
-            <div
-              className="cl-selected-note"
-              role="status"
-            >
+            <div className="cl-selected-note" role="status">
               <AlertCircle size={17} />
               <span>{message}</span>
             </div>
+          )}
+
+          {reviewResult && (
+            <section className="cl-review-results" aria-live="polite">
+              <div className="cl-review-heading">
+                <div>
+                  <span className="cl-review-eyebrow">REVIEW REQUIRED</span>
+                  <h2>Prescription analysis results</h2>
+                  <p>Compare each extracted field with the original prescription. Text similarity is not clinical verification.</p>
+                </div>
+                <span className="cl-review-status">Human review required</span>
+              </div>
+              {Array.isArray(reviewResult.medicines) && reviewResult.medicines.length > 0 ? (
+                <div className="cl-review-list">
+                  {reviewResult.medicines.map((entry, index) => {
+                    const medicine = entry.extracted_medicine || {};
+                    const identity = entry.identity_check || {};
+                    const candidates = entry.ml_candidates?.candidates || [];
+                    return (
+                      <article className="cl-review-medicine" key={`${medicine.medicine_name || "medicine"}-${index}`}>
+                        <div className="cl-review-medicine-top">
+                          <div>
+                            <span className="cl-review-index">MEDICINE {index + 1}</span>
+                            <h3>{medicine.medicine_name || "Name not readable"}</h3>
+                          </div>
+                          <span className="cl-review-pill">Needs review</span>
+                        </div>
+                        <dl className="cl-review-fields">
+                          <div><dt>Strength</dt><dd>{medicine.strength || "Not extracted"}</dd></div>
+                          <div><dt>Original dose notation</dt><dd>{medicine.original_dosage_notation || medicine.prescribed_dose || "Not extracted"}</dd></div>
+                          <div><dt>Frequency (OCR)</dt><dd>{medicine.frequency || "Not extracted"}</dd></div>
+                          <div><dt>Food instruction (OCR)</dt><dd>{medicine.food_instruction || "Not extracted"}</dd></div>
+                          <div><dt>Duration (OCR)</dt><dd>{medicine.duration || "Not extracted"}</dd></div>
+                          <div><dt>OCR uncertainty</dt><dd>{medicine.uncertainty || "Review required"}</dd></div>
+                        </dl>
+                        <p className="cl-review-safety-message"><ShieldCheck size={16} />{identity.message || "This information has not been clinically verified."}</p>
+                        <div className="cl-candidates-heading">
+                          <strong>Possible catalogue matches</strong><span>{candidates.length} candidates</span>
+                        </div>
+                        {candidates.length ? (
+                          <div className="cl-candidate-list">
+                            {candidates.map((candidate, ci) => (
+                              <div className="cl-candidate" key={`${candidate.id || candidate.name}-${ci}`}>
+                                <div className="cl-candidate-title">
+                                  <strong>{candidate.name || "Unnamed item"}</strong>
+                                  <span>Similarity: {Number(candidate.similarity_score || 0).toFixed(3)}</span>
+                                </div>
+                                <p>{[candidate.short_composition1, candidate.short_composition2, candidate.pack_size_label, candidate.is_discontinued ? "Marked discontinued in catalogue" : ""].filter(Boolean).join(" · ") || "Composition unavailable"}</p>
+                                <small>Suggestion only. Confirm medicine, strength and formulation against the original.</small>
+                              </div>
+                            ))}
+                          </div>
+                        ) : <p className="cl-review-empty">No candidates returned. Do not guess; request professional review.</p>}
+                      </article>
+                    );
+                  })}
+                </div>
+              ) : <p className="cl-review-empty">No medicines were extracted. Check image quality and request professional review.</p>}
+            </section>
           )}
 
           {/* PANEL FOOTER */}
@@ -899,9 +952,10 @@ export default function HomePage({
               type="button"
               className="cl-primary-button"
               onClick={handleContinue}
+              disabled={isProcessing}
             >
-              Save Input
-              <ChevronRight size={18} />
+              {isProcessing ? "Analyzing prescription..." : "Analyze Prescription"}
+              {!isProcessing && <ChevronRight size={18} />}
             </button>
           </div>
         </section>

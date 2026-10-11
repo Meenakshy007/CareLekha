@@ -1197,3 +1197,33 @@ a {
     transition: none !important;
   }
 }
+
+/* Prescription review results */
+.cl-review-results{margin-top:24px;padding:22px;border:1px solid #cde9dc;border-radius:16px;background:#fbfffd}
+.cl-review-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:18px}
+.cl-review-eyebrow,.cl-review-index{color:var(--cl-green);font-size:10px;font-weight:800;letter-spacing:1px}
+.cl-review-heading h2{margin:6px 0;color:#17344a;font-size:22px}
+.cl-review-heading p{margin:0;max-width:680px;color:var(--cl-muted);font-size:12px;line-height:1.7}
+.cl-review-status,.cl-review-pill{display:inline-flex;align-items:center;border-radius:999px;padding:7px 10px;background:#fff5d8;color:#805c0b;font-size:11px;font-weight:700}
+.cl-review-list{display:grid;gap:16px}
+.cl-review-medicine{padding:17px;border:1px solid var(--cl-border);border-radius:13px;background:#fff}
+.cl-review-medicine-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.cl-review-medicine-top h3{margin:5px 0 0;overflow-wrap:anywhere}
+.cl-review-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:16px 0}
+.cl-review-fields>div{min-width:0;padding:10px;border-radius:9px;background:#f6f9fb}
+.cl-review-fields dt{margin-bottom:5px;color:var(--cl-muted);font-size:10px}
+.cl-review-fields dd{margin:0;color:#243548;font-size:12px;font-weight:700;overflow-wrap:anywhere}
+.cl-review-safety-message{display:flex;gap:8px;align-items:flex-start;padding:11px;border-radius:9px;background:#fff9e7;color:#765c18;font-size:12px;line-height:1.6}
+.cl-review-safety-message svg{flex-shrink:0}
+.cl-candidates-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:16px 0 9px;font-size:12px}
+.cl-candidates-heading span{color:var(--cl-muted);font-size:11px}
+.cl-candidate-list{display:grid;gap:8px}
+.cl-candidate{padding:12px;border:1px solid #e3ece7;border-radius:10px;background:#fcfffd}
+.cl-candidate-title{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.cl-candidate-title strong{font-size:12px;overflow-wrap:anywhere}
+.cl-candidate-title span{flex-shrink:0;color:#69798a;font-size:10px}
+.cl-candidate p{margin:7px 0;color:#68798a;font-size:11px;line-height:1.6}
+.cl-candidate small{color:#9a6d13;font-size:10px;line-height:1.6}
+.cl-review-empty{color:var(--cl-muted);font-size:12px;line-height:1.7}
+.cl-primary-button:disabled{opacity:.65;cursor:wait;transform:none}
+@media(max-width:650px){.cl-review-results{padding:14px}.cl-review-heading,.cl-review-medicine-top,.cl-candidate-title{flex-direction:column}.cl-review-heading h2{font-size:19px}.cl-review-fields{grid-template-columns:repeat(2,minmax(0,1fr))}}

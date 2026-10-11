@@ -1,8 +1,10 @@
 import os
 from typing import Optional
 
+import httpx
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from google import genai
 from google.genai import types
 from pydantic import BaseModel
@@ -15,6 +17,16 @@ if not api_key:
 
 client = genai.Client(api_key=api_key)
 app = FastAPI(title="CareLekha AI API")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:5174", "http://127.0.0.1:5174"],
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["*"],
+)
+
+ML_API_URL = os.getenv("CARELEKHA_ML_API_URL", "http://127.0.0.1:8001")
+SAFETY_API_URL = os.getenv("CARELEKHA_SAFETY_API_URL", "http://127.0.0.1:8002")
 
 MODEL = "gemini-3.5-flash"
 
@@ -33,6 +45,13 @@ class Medicine(BaseModel):
 class PrescriptionResult(BaseModel):
     medicines: list[Medicine]
     needs_human_review: bool = True
+
+
+def flag_missing_identity_fields(medicine: Medicine) -> Medicine:
+    """Flag incomplete identities for human review, not validate OCR correctness."""
+    if not medicine.medicine_name or not medicine.strength:
+        medicine.uncertainty = "Review required"
+    return medicine
 
 
 @app.get("/")
@@ -105,10 +124,9 @@ async def extract_prescription(file: UploadFile = File(...)):
                 detail="The AI returned an empty response."
             )
 
-        result = PrescriptionResult.model_validate_json(
-            response.text
-        )
-
+        result = PrescriptionResult.model_validate_json(response.text)
+        for medicine in result.medicines:
+            flag_missing_identity_fields(medicine)
         return result
 
     except HTTPException:
@@ -129,3 +147,63 @@ async def extract_prescription(file: UploadFile = File(...)):
         ) from e
 
 
+
+
+@app.post("/extract-and-review")
+async def extract_and_review(file: UploadFile = File(...)):
+    """Run OCR, retrieve medicine candidates and query the safety identity API."""
+    ocr_result = await extract_prescription(file)
+    reviewed = []
+
+    async with httpx.AsyncClient(timeout=20.0) as http:
+        for medicine in ocr_result.medicines:
+            item = medicine.model_dump()
+            name, strength = item.get("medicine_name"), item.get("strength")
+            candidates = {
+                "status": "not_attempted",
+                "candidates": [],
+                "requires_human_confirmation": True,
+            }
+
+            if name:
+                query = " ".join(part for part in (name, strength) if part)
+                try:
+                    res = await http.post(f"{ML_API_URL}/match", json={"ocr_text": query, "top_k": 5})
+                    res.raise_for_status()
+                    candidates = res.json()
+                except (httpx.HTTPError, ValueError):
+                    candidates = {"status": "matcher_unavailable", "candidates": [], "requires_human_confirmation": True}
+
+            if not name or not strength:
+                identity = {
+                    "status": "needs_review",
+                    "verified": False,
+                    "message": "Medicine name or strength is missing. Review the original prescription with a qualified professional.",
+                }
+            else:
+                try:
+                    res = await http.post(
+                        f"{SAFETY_API_URL}/verify",
+                        json={"name": name, "strength": strength, "confirmed_by_user": False},
+                    )
+                    res.raise_for_status()
+                    identity = res.json()
+                except (httpx.HTTPError, ValueError):
+                    identity = {
+                        "status": "safety_service_unavailable",
+                        "verified": False,
+                        "message": "Safety service unavailable. This medicine has not been verified.",
+                    }
+
+            reviewed.append({
+                "extracted_medicine": item,
+                "ml_candidates": candidates,
+                "identity_check": identity,
+                "requires_human_review": True,
+            })
+
+    return {
+        "medicines": reviewed,
+        "needs_human_review": True,
+        "message": "ML matches are suggestions only. Review all extracted details against the original prescription; do not infer missing doses or timings.",
+    }
