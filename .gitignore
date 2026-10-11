@@ -30,3 +30,6 @@ backend/ml/data/*.csv
 .idea/
 .DS_Store
 Thumbs.db
+
+# Local reminder database (contains recipient and medication schedule data)
+*.sqlite3
