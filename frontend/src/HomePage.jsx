@@ -479,44 +479,54 @@ export default function HomePage({
       return;
     }
 
-    const routineResult = scheduleResults[index];
-    const schedule = routineResult?.status === "ready_for_display" && Array.isArray(routineResult.schedule)
-      ? routineResult.schedule
-      : [];
-
-    if (!schedule.length) {
-      setAudioStatus("ആദ്യം നാലാം ഘട്ടത്തിൽ ഈ മരുന്നിന്റെ ദൈനംദിന ക്രമം തയ്യാറാക്കുക.");
-      return;
-    }
-
     if (!("speechSynthesis" in window) || !("SpeechSynthesisUtterance" in window)) {
       setAudioStatus("ഈ ഉപകരണത്തിൽ ശബ്ദം പ്ലേ ചെയ്യാൻ കഴിയുന്നില്ല.");
       return;
     }
 
-    const first = schedule[0];
+    const routineResult = scheduleResults[index];
+    const schedule = routineResult?.status === "ready_for_display" && Array.isArray(routineResult.schedule)
+      ? routineResult.schedule
+      : [];
     const timeLabels = {
       morning: "രാവിലെ",
       afternoon: "ഉച്ചയ്ക്ക്",
       evening: "വൈകുന്നേരം",
       night: "രാത്രി",
     };
-    const confirmedTimes = schedule
-      .map((item) => timeLabels[item.time] || "")
-      .filter(Boolean)
-      .join(", ");
 
-    const fields = [
-      ["മരുന്നിന്റെ പേര്", first.medicine_name],
-      ["ശക്തി", first.strength],
-      ["ഡോസ്", first.dose],
-      ["സ്ഥിരീകരിച്ച സമയം", confirmedTimes],
-      ["ഭക്ഷണ നിർദ്ദേശം", first.instruction],
-      ["ചികിത്സാ കാലയളവ്", medicine.duration],
-    ].filter(([, value]) => value !== null && value !== undefined && String(value).trim() !== "");
+    let fields;
+    let intro;
+    if (schedule.length) {
+      const first = schedule[0];
+      const confirmedTimes = schedule
+        .map((item) => timeLabels[item.time] || "")
+        .filter(Boolean)
+        .join(", ");
+      fields = [
+        ["മരുന്നിന്റെ പേര്", first.medicine_name],
+        ["ശക്തി", first.strength],
+        ["ഡോസ്", first.dose],
+        ["സ്ഥിരീകരിച്ച സമയം", confirmedTimes],
+        ["ഭക്ഷണ നിർദ്ദേശം", first.instruction],
+        ["ചികിത്സാ കാലയളവ്", medicine.duration],
+      ];
+      intro = "ശ്രദ്ധിക്കുക. ഇത് നിങ്ങൾ പരിശോധിച്ച് സ്ഥിരീകരിച്ച ദൈനംദിന ക്രമമാണ്. ചികിത്സാ നിർദ്ദേശത്തിന് പകരമല്ല.";
+    } else {
+      fields = [
+        ["മരുന്നിന്റെ പേര്", medicine.medicine_name],
+        ["ശക്തി", medicine.strength],
+        ["കുറിപ്പടിയിലെ ഡോസ് രേഖ", medicine.original_dosage_notation || medicine.prescribed_dose],
+        ["ആവൃത്തി", medicine.frequency],
+        ["ഭക്ഷണ നിർദ്ദേശം", medicine.food_instruction],
+        ["ചികിത്സാ കാലയളവ്", medicine.duration],
+      ];
+      intro = "ശ്രദ്ധിക്കുക. ദൈനംദിന സമയക്രമം തയ്യാറാക്കിയിട്ടില്ല. നിങ്ങൾ പരിശോധിച്ച കുറിപ്പടി വിവരങ്ങൾ മാത്രമാണ് വായിക്കുന്നത്. സമയം ഊഹിച്ചിട്ടില്ല.";
+    }
 
+    fields = fields.filter(([, value]) => value !== null && value !== undefined && String(value).trim() !== "");
     const spokenText = [
-      "ശ്രദ്ധിക്കുക. ഇത് നിങ്ങൾ സ്ഥിരീകരിച്ച വിവരങ്ങളിൽ നിന്ന് തയ്യാറാക്കിയ ദൈനംദിന ക്രമമാണ്. ചികിത്സയ്ക്ക് പകരമല്ല.",
+      intro,
       ...fields.map(([label, value]) => `${label}: ${valueForMalayalamSpeech(label, value)}.`),
       "ഡോസ് അല്ലെങ്കിൽ സമയം സംബന്ധിച്ച് സംശയമുണ്ടെങ്കിൽ ഡോക്ടറെയോ ഫാർമസിസ്റ്റിനെയോ സമീപിക്കുക."
     ].join(" ");
