@@ -1,0 +1,31 @@
+name: Safety API checks
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/safety/**"
+      - ".github/workflows/safety-check.yml"
+  pull_request:
+    paths:
+      - "backend/safety/**"
+      - ".github/workflows/safety-check.yml"
+
+jobs:
+  safety-api:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Safety API dependencies
+        run: python -m pip install --upgrade pip && pip install -r backend/safety/requirements.txt
+      - name: Compile Safety API modules
+        run: python -m compileall -q backend/safety
+      - name: Validate Safety API routes
+        working-directory: backend/safety
+        run: |
+          python -c "from main import app; paths = {route.path for route in app.routes}; required = {'/schedule', '/reminders/whatsapp', '/reminders/whatsapp/disable'}; missing = required - paths; print('Safety routes:', sorted(paths)); assert not missing, f'Missing required routes: {sorted(missing)}'"
