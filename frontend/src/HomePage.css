@@ -1528,8 +1528,21 @@ a {
 }
 
 .cl-routine-submit:disabled {
-  opacity: 0.65;
-  cursor: wait;
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.cl-routine-medicine-meta {
+  margin: 5px 0 0;
+  color: var(--cl-muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.cl-workflow-next .cl-routine-submit:disabled {
+  background: #dfe9e4;
+  color: #718078;
+  border-color: #dfe9e4;
 }
 
 .cl-routine-ready {
