@@ -569,11 +569,18 @@ export default function HomePage({
     if ("speechSynthesis" in window) window.speechSynthesis.cancel();
   }, []);
 
+  function getRoutineDose(medicine) {
+    const dose = String(medicine?.prescribed_dose || "").trim();
+    // Do not treat common frequency shorthand like 1-0-1 as an amount per dose.
+    const isFrequencyNotation = /^\d+\s*[-–/]\s*\d+\s*[-–/]\s*\d+(?:\s*[-–/]\s*\d+)?$/.test(dose);
+    return isFrequencyNotation ? "" : dose;
+  }
+
   function getScheduleDraft(index, medicine) {
     return scheduleDrafts[index] || {
       medicine_name: medicine?.medicine_name || "",
       strength: medicine?.strength || "",
-      dose: medicine?.prescribed_dose || medicine?.original_dosage_notation || "",
+      dose: getRoutineDose(medicine),
       confirmed_times: [],
     };
   }
@@ -584,7 +591,7 @@ export default function HomePage({
       const current = previous[index] || {
         medicine_name: medicine?.medicine_name || "",
         strength: medicine?.strength || "",
-        dose: medicine?.prescribed_dose || medicine?.original_dosage_notation || "",
+        dose: getRoutineDose(medicine),
         confirmed_times: [],
       };
       return { ...previous, [index]: { ...current, ...patch } };
@@ -642,7 +649,13 @@ export default function HomePage({
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error("ദൈനംദിന ക്രമം തയ്യാറാക്കാനായില്ല. സുരക്ഷാ സേവനം പ്രവർത്തിക്കുന്നുണ്ടോയെന്ന് പരിശോധിക്കുക.");
+        if (response.status === 404) {
+          throw new Error("ദൈനംദിന ക്രമത്തിനുള്ള API നിലവിലെ OCR സേവനത്തിൽ ലഭ്യമല്ല. backend/ocr/main.py പുതുക്കി OCR സേവനം വീണ്ടും ആരംഭിക്കുക.");
+        }
+        if (response.status === 502 || response.status === 503) {
+          throw new Error("സുരക്ഷാ സേവനവുമായി ബന്ധപ്പെടാനായില്ല. സുരക്ഷാ API പ്രവർത്തിക്കുന്നുണ്ടെന്ന് പരിശോധിക്കുക.");
+        }
+        throw new Error("ദൈനംദിന ക്രമം തയ്യാറാക്കാനായില്ല. വിവരങ്ങൾ പരിശോധിച്ച് വീണ്ടും ശ്രമിക്കുക.");
       }
 
       setScheduleResults((previous) => ({ ...previous, [index]: payload }));
@@ -657,7 +670,7 @@ export default function HomePage({
         ...previous,
         [index]: error instanceof TypeError
           ? "ക്രമം തയ്യാറാക്കുന്ന സേവനവുമായി ബന്ധപ്പെടാനായില്ല. OCR, സുരക്ഷാ സേവനങ്ങൾ പ്രവർത്തിക്കുന്നുണ്ടോയെന്ന് പരിശോധിക്കുക."
-          : "ദൈനംദിന ക്രമം തയ്യാറാക്കാനായില്ല. വീണ്ടും ശ്രമിക്കുക.",
+          : (error instanceof Error && error.message ? error.message : "ദൈനംദിന ക്രമം തയ്യാറാക്കാനായില്ല. വീണ്ടും ശ്രമിക്കുക."),
       }));
     } finally {
       setScheduleLoading((previous) => ({ ...previous, [index]: false }));
@@ -1335,7 +1348,7 @@ export default function HomePage({
                       <div className="cl-routine-form-grid">
                         <label>
                           <span>ഡോസ് (കുറിപ്പടിയിൽ ഉള്ളതുപോലെ)</span>
-                          <input type="text" value={draft.dose} onChange={(event) => updateScheduleDraft(index, { dose: event.target.value })} placeholder="കുറിപ്പടിയിലെ ഡോസ് സ്ഥിരീകരിക്കുക" autoComplete="off" />
+                          <input type="text" value={draft.dose} onChange={(event) => updateScheduleDraft(index, { dose: event.target.value })} placeholder="ഡോസ് വ്യക്തമല്ലെങ്കിൽ ചോദിച്ച് ഉറപ്പാക്കുക" autoComplete="off" />
                         </label>
                         <p className="cl-routine-source-food">
                           <strong>ഭക്ഷണ നിർദ്ദേശം:</strong>{" "}
