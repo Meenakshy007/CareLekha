@@ -1771,3 +1771,15 @@ a {
     font-size: 11px;
   }
 }
+
+
+/* Generated Malayalam speech audio (Gemini TTS, not the browser's English fallback) */
+.cl-generated-audio {
+  display: block;
+  width: 100%;
+  max-width: 520px;
+  height: 42px;
+  margin-top: 12px;
+  border-radius: 10px;
+}
+
