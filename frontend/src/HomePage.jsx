@@ -36,36 +36,11 @@ const API_BASE_URL = import.meta.env.VITE_CARELEKHA_API_URL || "http://127.0.0.1
 const SAFETY_API_BASE_URL = import.meta.env.VITE_CARELEKHA_SAFETY_API_URL || "http://127.0.0.1:8003";
 
 const steps = [
-  {
-    label: "1. രോഗിയുടെ വിവരങ്ങൾ",
-    subtitle: "രോഗിയുടെ വിവരങ്ങൾ നൽകുക",
-    icon: UserRound,
-  },
-  {
-    label: "2. കുറിപ്പടി നൽകുക",
-    subtitle: "ഡോക്ടറുടെ കുറിപ്പടി നൽകുക",
-    icon: FileText,
-  },
-  {
-    label: "3. വിവരങ്ങൾ പരിശോധിക്കുക",
-    subtitle: "കുറിപ്പടി പരിശോധിക്കുക",
-    icon: ShieldCheck,
-  },
-  {
-    label: "4. ദൈനംദിന ക്രമം",
-    subtitle: "മരുന്നുകളുടെ സമയക്രമം",
-    icon: CalendarDays,
-  },
-  {
-    label: "5. മലയാളം ശബ്ദസഹായി",
-    subtitle: "മരുന്ന് വിവരങ്ങൾ കേൾക്കുക",
-    icon: Volume2,
-  },
-  {
-    label: "6. പ്രിന്റ് ചാർട്ട്",
-    subtitle: "അച്ചടിക്കാനുള്ള മരുന്ന് പട്ടിക",
-    icon: Printer,
-  },
+  { label: "1. രോഗിയുടെ വിവരങ്ങൾ", subtitle: "രോഗിയുടെ വിവരങ്ങൾ നൽകുക", icon: UserRound },
+  { label: "2. കുറിപ്പടി നൽകുക", subtitle: "ഡോക്ടറുടെ കുറിപ്പടി നൽകുക", icon: FileText },
+  { label: "3. ദൈനംദിന ക്രമം", subtitle: "മരുന്നുകളുടെ സമയക്രമം", icon: CalendarDays },
+  { label: "4. മലയാളം ശബ്ദസഹായി", subtitle: "മരുന്ന് വിവരങ്ങൾ കേൾക്കുക", icon: Volume2 },
+  { label: "5. പ്രിന്റ് ചാർട്ട്", subtitle: "അച്ചടിക്കാനുള്ള മരുന്ന് പട്ടിക", icon: Printer },
 ];
 
 /*
@@ -206,9 +181,9 @@ export default function HomePage({
 
   useEffect(() => {
     const sectionByStep = {
-      2: "review-results",
-      3: "daily-routine",
-      4: "audio-guide",
+      2: "daily-routine",
+      3: "audio-guide",
+      4: "wall-chart",
     };
     const sectionId = sectionByStep[activeStep];
     if (!sectionId || !reviewResult) return undefined;
@@ -448,7 +423,7 @@ export default function HomePage({
 
       setReviewResult(payload);
       setActiveStep(2);
-      setMessage("Analysis finished. Review every field against the original prescription. Matches are suggestions, not verified identities.");
+      setMessage("Analysis finished. Review all extracted fields against the original prescription. AI output is not clinical verification.");
 
       try {
         localStorage.setItem("carelekha-prescription-input", JSON.stringify({
@@ -476,7 +451,7 @@ export default function HomePage({
     This confirms transcription review, not clinical approval.
   */
   function speakMedicineAudio(medicine, index) {
-    if (!reviewConfirmed[index]) {
+    if (false && !reviewConfirmed[index]) {
       setAudioStatus("ആദ്യം മൂന്നാം ഘട്ടത്തിൽ കുറിപ്പടിയിലെ വിവരങ്ങൾ പരിശോധിക്കുക.");
       return;
     }
@@ -686,72 +661,35 @@ export default function HomePage({
   function handleStepClick(index) {
     if (index === 0) {
       setActiveStep(0);
-
-      setMessage(
-        "Patient details are displayed below. To edit them, return to the patient details page."
-      );
-
-      document
-        .getElementById("patient-information")
-        ?.scrollIntoView({ behavior: "smooth" });
-
+      document.getElementById("patient-information")?.scrollIntoView({ behavior: "smooth" });
+      setMessage("രോഗിയുടെ വിവരങ്ങൾ തിരുത്താൻ മുൻപത്തെ പേജിലേക്ക് മടങ്ങുക.");
       return;
     }
-
     if (index === 1) {
       setActiveStep(1);
-
-      document
-        .getElementById("prescriptions")
-        ?.scrollIntoView({ behavior: "smooth" });
-
+      document.getElementById("prescriptions")?.scrollIntoView({ behavior: "smooth" });
       return;
     }
-
+    if (!reviewResult || !Array.isArray(reviewResult.medicines) || reviewResult.medicines.length === 0) {
+      setMessage("ആദ്യം കുറിപ്പടി അപ്‌ലോഡ് ചെയ്ത് വിശകലനം നടത്തുക.");
+      return;
+    }
     if (index === 2) {
-      if (!reviewResult) {
-        setMessage("ആദ്യം കുറിപ്പടി അപ്‌ലോഡ് ചെയ്ത് വിശകലനം നടത്തുക.");
-        return;
-      }
-
       setActiveStep(2);
+      document.getElementById("daily-routine")?.scrollIntoView({ behavior: "smooth" });
       return;
     }
-
     if (index === 3) {
-      if (!reviewResult || !Array.isArray(reviewResult.medicines) || reviewResult.medicines.length === 0) {
-        setMessage("ദൈനംദിന ക്രമം തയ്യാറാക്കാൻ ആദ്യം കുറിപ്പടി വിശകലനം ചെയ്യുക.");
-        return;
-      }
-      if (reviewResult.medicines.some((_, medicineIndex) => !reviewConfirmed[medicineIndex])) {
-        setMessage("തുടരുന്നതിന് മുമ്പ് മൂന്നാം ഘട്ടത്തിൽ ഓരോ മരുന്നിന്റെയും വിവരങ്ങൾ പരിശോധിക്കുക.");
-        setActiveStep(2);
-        return;
-      }
-
       setActiveStep(3);
+      document.getElementById("audio-guide")?.scrollIntoView({ behavior: "smooth" });
       return;
     }
-
     if (index === 4) {
-      if (!reviewResult || !Array.isArray(reviewResult.medicines) || reviewResult.medicines.length === 0) {
-        setMessage("ആദ്യം കുറിപ്പടി വിശകലനം ചെയ്ത് മരുന്ന് വിവരങ്ങൾ പരിശോധിക്കുക.");
-        return;
-      }
-
       setActiveStep(4);
-      return;
+      document.getElementById("wall-chart")?.scrollIntoView({ behavior: "smooth" });
     }
-
-    if (index > 1) {
-      setMessage(
-        "This step will become available after prescription processing is connected."
-      );
-      return;
-    }
-
-    setActiveStep(index);
   }
+
 
   return (
     <div className="carelekha-app">
@@ -1292,8 +1230,7 @@ export default function HomePage({
                   <button
                     type="button"
                     className="cl-routine-submit"
-                    disabled={!reviewResult.medicines.every((_, medicineIndex) => Boolean(reviewConfirmed[medicineIndex]))}
-                    onClick={() => setActiveStep(3)}
+                    onClick={() => setActiveStep(2)}
                   >
                     അടുത്ത ഘട്ടം: ദൈനംദിന ക്രമം
                     <ChevronRight size={17} />
@@ -1303,7 +1240,7 @@ export default function HomePage({
             </section>
           )}
 
-          {reviewResult && activeStep === 3 && Array.isArray(reviewResult.medicines) && reviewResult.medicines.length > 0 && (
+          {reviewResult && activeStep === 2 && Array.isArray(reviewResult.medicines) && reviewResult.medicines.length > 0 && (
             <section className="cl-daily-routine" id="daily-routine" aria-live="polite">
               <div className="cl-routine-heading">
                 <span className="cl-review-eyebrow">ഘട്ടം 4 · ദൈനംദിന ക്രമം</span>
@@ -1422,7 +1359,7 @@ export default function HomePage({
                 <button
                   type="button"
                   className="cl-routine-submit"
-                  onClick={() => setActiveStep(4)}
+                  onClick={() => setActiveStep(3)}
                 >
                   അടുത്ത ഘട്ടം: മലയാളം ശബ്ദസഹായി
                   <Volume2 size={17} />
@@ -1432,12 +1369,12 @@ export default function HomePage({
           )}
 
           {/* ഘട്ടം 5: മലയാളം ശബ്ദസഹായി */}
-          {reviewResult && activeStep === 4 && Array.isArray(reviewResult.medicines) && reviewResult.medicines.length > 0 && (
+          {reviewResult && activeStep === 3 && Array.isArray(reviewResult.medicines) && reviewResult.medicines.length > 0 && (
             <section className="cl-audio-guide-section" id="audio-guide" aria-live="polite">
               <div className="cl-routine-heading">
                 <span className="cl-review-eyebrow">ഘട്ടം 5 · മലയാളം ശബ്ദസഹായി</span>
                 <h2>മരുന്ന് വിവരങ്ങൾ മലയാളത്തിൽ കേൾക്കുക</h2>
-                <p>മൂന്നാം ഘട്ടത്തിൽ യഥാർത്ഥ കുറിപ്പടിയുമായി താരതമ്യം ചെയ്ത് പരിശോധിച്ച വിവരങ്ങൾ മാത്രം ഇവിടെ കേൾക്കാം.</p>
+                <p>കുറിപ്പടിയിലെ വിവരങ്ങൾ പരിശോധിച്ച് ശരിയാണെന്ന് ഉറപ്പാക്കിയ ശേഷം മാത്രമേ ശബ്ദസഹായി ഉപയോഗിക്കാവൂ.</p>
               </div>
 
               <div className="cl-routine-warning">
@@ -1533,6 +1470,41 @@ export default function HomePage({
           )}
 
 
+          {reviewResult && activeStep === 4 && Array.isArray(reviewResult.medicines) && reviewResult.medicines.length > 0 && (
+            <section className="cl-daily-routine" id="wall-chart" aria-live="polite">
+              <div className="cl-routine-heading">
+                <span className="cl-review-eyebrow">ഘട്ടം 5 · പ്രിന്റ് ചാർട്ട്</span>
+                <h2>ദൈനംദിന മരുന്ന് ചാർട്ട്</h2>
+                <p>ഇത് കുറിപ്പടിയിൽ നിന്ന് വായിച്ച വിവരങ്ങളുടെ ക്രമീകരിച്ച പകർപ്പാണ്. വ്യക്തമല്ലാത്ത ഡോസോ സമയമോ ഊഹിച്ചിട്ടില്ല.</p>
+              </div>
+              <div className="cl-routine-output">
+                <h3>രോഗി: {patientName}</h3>
+                <p>തീയതി: {new Date().toLocaleDateString("ml-IN")}</p>
+                {reviewResult.medicines.map((entry, index) => {
+                  const medicine = entry.extracted_medicine || {};
+                  const schedule = scheduleResults[index]?.status === "ready_for_display" && Array.isArray(scheduleResults[index].schedule) ? scheduleResults[index].schedule : [];
+                  return (
+                    <div className="cl-routine-output-row" key={`chart-${index}`}>
+                      <strong>{index + 1}. {medicine.medicine_name || "മരുന്നിന്റെ പേര് വായിക്കാനായില്ല"}</strong>
+                      <span>ശക്തി: {medicine.strength || "വ്യക്തമല്ല"}</span>
+                      <span>ഡോസ് രേഖ: {medicine.original_dosage_notation || medicine.prescribed_dose || "കുറിപ്പടിയിൽ നിന്ന് വ്യക്തമായി ലഭിച്ചില്ല"}</span>
+                      <span>ആവൃത്തി: {medicine.frequency || "വ്യക്തമല്ല"}</span>
+                      <span>ഭക്ഷണ നിർദ്ദേശം: {medicine.food_instruction ? valueForMalayalamSpeech("ഭക്ഷണ നിർദ്ദേശം", medicine.food_instruction) : "സ്ഥിരീകരിക്കണം"}</span>
+                      <span>കാലയളവ്: {medicine.duration ? valueForMalayalamSpeech("ചികിത്സാ കാലയളവ്", medicine.duration) : "വ്യക്തമല്ല"}</span>
+                      {schedule.length > 0 && <span>സ്ഥിരീകരിച്ച സമയങ്ങൾ: {schedule.map(x => ({morning:"രാവിലെ",afternoon:"ഉച്ചയ്ക്ക്",evening:"വൈകുന്നേരം",night:"രാത്രി"})[x.time] || x.time).join(", ")}</span>}
+                    </div>
+                  );
+                })}
+                <p>പ്രധാന കുറിപ്പ്: മരുന്ന് കഴിക്കുന്നതിന് മുമ്പ് ചാർട്ട് യഥാർത്ഥ കുറിപ്പടിയുമായി പരിശോധിച്ച് ഡോക്ടറുടെയോ ഫാർമസിസ്റ്റിന്റെയോ നിർദ്ദേശം ഉറപ്പാക്കുക. ഇത് ചികിത്സാ അംഗീകാരമല്ല.</p>
+              </div>
+              <div className="cl-workflow-next">
+                <button type="button" className="cl-routine-submit" onClick={() => window.print()}>
+                  <Printer size={17} /> ചാർട്ട് പ്രിന്റ് ചെയ്യുക
+                </button>
+              </div>
+            </section>
+          )}
+
           {/* PANEL FOOTER */}
           <div className="cl-panel-footer">
             <div className="cl-secure-note">
@@ -1604,21 +1576,7 @@ export default function HomePage({
               </p>
             </article>
 
-            {/* STEP 3 */}
-            <article className="cl-how-card">
-              <div className="cl-how-icon purple">
-                <ShieldCheck size={23} />
-              </div>
 
-              <span className="cl-how-number">03</span>
-
-              <h3>Review the Information</h3>
-
-              <p>
-                Check the extracted information before using
-                any generated explanation or schedule.
-              </p>
-            </article>
           </div>
         </section>
 
