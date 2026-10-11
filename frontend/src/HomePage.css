@@ -1610,3 +1610,80 @@ a {
     flex-direction: column;
   }
 }
+
+
+/* WORKFLOW NAVIGATION AND MALAYALAM VERIFICATION */
+.cl-verification-check {
+  display: grid;
+  gap: 7px;
+  margin: 12px 0 16px;
+  padding: 12px;
+  border: 1px solid #cde8da;
+  border-radius: 10px;
+  background: #f5fcf8;
+}
+
+.cl-verification-check label {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  color: #2e5946;
+  font-size: 12px;
+  line-height: 1.8;
+  cursor: pointer;
+}
+
+.cl-verification-check input[type="checkbox"] {
+  flex-shrink: 0;
+  width: 17px;
+  height: 17px;
+  margin-top: 3px;
+  accent-color: var(--cl-green);
+}
+
+.cl-verification-check small {
+  color: var(--cl-muted);
+  font-size: 11px;
+  line-height: 1.8;
+}
+
+.cl-workflow-next {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.cl-audio-guide-section {
+  margin-top: 18px;
+  padding: 20px;
+  border: 1px solid #cfe8db;
+  border-radius: 16px;
+  background: #ffffff;
+}
+
+.cl-audio-guide-section .cl-routine-heading h2 {
+  font-family: 'Noto Sans Malayalam', 'Inter', sans-serif;
+}
+
+.cl-audio-guide-section .cl-routine-medicine-title h3,
+.cl-audio-guide-section .cl-routine-warning,
+.cl-audio-guide-section .cl-audio-button,
+.cl-audio-guide-section .cl-audio-stop-button {
+  font-family: 'Noto Sans Malayalam', 'Inter', sans-serif;
+}
+
+@media (max-width: 650px) {
+  .cl-audio-guide-section {
+    padding: 14px;
+  }
+
+  .cl-workflow-next {
+    justify-content: stretch;
+  }
+
+  .cl-workflow-next .cl-routine-submit {
+    width: 100%;
+  }
+}
