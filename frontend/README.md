@@ -14,3 +14,18 @@ The React Compiler is not enabled on this template because of its impact on dev 
 ## Expanding the ESLint configuration
 
 If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+
+
+## Connect to the CareLekha backend
+
+1. Copy `.env.example` to `.env` in the `frontend/` directory.
+2. Keep `VITE_CARELEKHA_API_URL=http://127.0.0.1:8000` for local development. Do not add a trailing slash.
+3. Start the OCR API and its ML and safety dependencies in separate terminals, using the backend's local setup instructions.
+4. Run `npm install` and `npm run dev` from `frontend/`.
+5. Open the local Vite URL and upload a JPG, PNG, or WebP prescription image, then select **Analyze Prescription**.
+
+The prescription upload flow in `src/HomePage.jsx` calls `POST /extract-and-review` and displays OCR fields, candidate matches, and identity-review messages. The browser sends the image as multipart form data; do not set the multipart `Content-Type` header manually.
+
+The OCR API currently accepts JPG, PNG, and WebP images, not PDFs. All extracted fields and catalogue candidates require review against the original prescription. Candidate similarity scores are not probabilities, and a matching medicine identity is not approval of a patient-specific dose or schedule.
+
+For a different local backend address, change `VITE_CARELEKHA_API_URL` in `.env` and restart Vite. The OCR backend must allow the frontend's origin in its CORS configuration.

@@ -29,6 +29,10 @@ import {
 
 import "./HomePage.css";
 
+// Configure with frontend/.env (VITE_CARELEKHA_API_URL).
+// The local OCR backend defaults to port 8000.
+const API_BASE_URL = import.meta.env.VITE_CARELEKHA_API_URL || "http://127.0.0.1:8000";
+
 const steps = [
   {
     label: "1. രോഗിയുടെ വിവരങ്ങൾ",
@@ -347,7 +351,7 @@ export default function HomePage({
     try {
       const formData = new FormData();
       formData.append("file", uploadedFile);
-      const response = await fetch("http://127.0.0.1:8000/extract-and-review", {
+      const response = await fetch(`${API_BASE_URL}/extract-and-review`, {
         method: "POST",
         body: formData,
       });
@@ -374,7 +378,7 @@ export default function HomePage({
     } catch (error) {
       console.error("CareLekha review failed:", error);
       setMessage(error instanceof TypeError
-        ? "Cannot connect to the OCR API. Confirm it is running on port 8000 and CORS is enabled."
+        ? "Cannot connect to the OCR API. Check that the backend URL is correct, the OCR service is running, and CORS allows this frontend origin."
         : error.message || "Prescription analysis failed. Please try again.");
     } finally {
       setIsProcessing(false);
@@ -787,8 +791,7 @@ export default function HomePage({
               <h3>കുറിപ്പടി അപ്‌ലോഡ് ചെയ്യുക</h3>
 
               <p>
-                Select your own prescription as a PDF, JPG,
-                PNG, or WEBP file. Maximum size: 10 MB.
+                Select your own prescription as a JPG, PNG, or WEBP image. Maximum size: 10 MB.
               </p>
 
               <input
