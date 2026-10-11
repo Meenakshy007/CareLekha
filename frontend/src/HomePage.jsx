@@ -52,21 +52,41 @@ const steps = [
     icon: ShieldCheck,
   },
   {
-    label: "4. ദൈനംദിന ക്രമം",
-    subtitle: "മരുന്നുകളുടെ സമയക്രമം",
-    icon: CalendarDays,
-  },
-  {
     label: "5. മലയാളം ശബ്ദസഹായി",
     subtitle: "മരുന്ന് വിവരങ്ങൾ കേൾക്കുക",
     icon: Volume2,
   },
   {
-    label: "6. പ്രിന്റ് ചാർട്ട്",
-    subtitle: "അച്ചടിക്കാനുള്ള മരുന്ന് പട്ടിക",
+    label: "6. സമ്പൂർണ്ണ ദിനചര്യ",
+    subtitle: "എല്ലാ മരുന്നുകളും · WhatsApp അറിയിപ്പുകൾ",
     icon: Printer,
   },
 ];
+
+/*
+  Recognize 1-0-1 only on the medicine whose extracted instructions contain it.
+  This is a proposed morning-one / afternoon-zero / night-one interpretation
+  and must be explicitly confirmed against that medicine's original prescription.
+*/
+function getOneZeroOnePlan(medicine) {
+  const values = [
+    medicine?.original_dosage_notation,
+    medicine?.prescribed_dose,
+    medicine?.frequency,
+  ];
+  const notation = values
+    .map((value) => String(value || "").trim())
+    .find((value) => /^1\\s*[-–]\\s*0\\s*[-–]\\s*1$/.test(value));
+  if (!notation) return null;
+
+  return {
+    notation,
+    times: ["morning", "night"],
+    morning: 1,
+    afternoon: 0,
+    night: 1,
+  };
+}
 
 /*
   Translate only a small set of unambiguous common phrases for speech.
@@ -201,6 +221,12 @@ export default function HomePage({
   const [scheduleResults, setScheduleResults] = useState({});
   const [scheduleLoading, setScheduleLoading] = useState({});
   const [scheduleErrors, setScheduleErrors] = useState({});
+  const [notationConfirmations, setNotationConfirmations] = useState({});
+  const [whatsappPhone, setWhatsappPhone] = useState("");
+  const [whatsappConsent, setWhatsappConsent] = useState(false);
+  const [whatsappTimes, setWhatsappTimes] = useState({});
+  const [whatsappStatus, setWhatsappStatus] = useState("");
+  const [whatsappSaving, setWhatsappSaving] = useState(false);
 
   const conversionTimer = useRef(null);
   const fileInputRef = useRef(null);
@@ -211,8 +237,8 @@ export default function HomePage({
   useEffect(() => {
     const sectionByStep = {
       2: "review-results",
-      3: "daily-routine",
-      4: "audio-guide",
+      3: "audio-guide",
+      4: "daily-routine",
     };
     const sectionId = sectionByStep[activeStep];
     if (!sectionId || !reviewResult) return undefined;
@@ -420,6 +446,10 @@ export default function HomePage({
     setScheduleResults({});
     setScheduleLoading({});
     setScheduleErrors({});
+    setNotationConfirmations({});
+    setWhatsappTimes({});
+    setWhatsappStatus("");
+    setWhatsappConsent(false);
     if (audioPlayerRef.current) {
       audioPlayerRef.current.pause();
       audioPlayerRef.current = null;
@@ -653,18 +683,19 @@ export default function HomePage({
   }, []);
 
   function getRoutineDose(medicine) {
+    // A shorthand such as 1-0-1 is a timing pattern, not a dose amount.
     const dose = String(medicine?.prescribed_dose || "").trim();
-    // Do not treat common frequency shorthand like 1-0-1 as an amount per dose.
     const isFrequencyNotation = /^\d+\s*[-–/]\s*\d+\s*[-–/]\s*\d+(?:\s*[-–/]\s*\d+)?$/.test(dose);
     return isFrequencyNotation ? "" : dose;
   }
 
   function getScheduleDraft(index, medicine) {
+    const shorthand = getOneZeroOnePlan(medicine);
     return scheduleDrafts[index] || {
       medicine_name: medicine?.medicine_name || "",
       strength: medicine?.strength || "",
       dose: getRoutineDose(medicine),
-      confirmed_times: [],
+      confirmed_times: shorthand ? shorthand.times : [],
     };
   }
 
@@ -675,7 +706,7 @@ export default function HomePage({
         medicine_name: medicine?.medicine_name || "",
         strength: medicine?.strength || "",
         dose: getRoutineDose(medicine),
-        confirmed_times: [],
+        confirmed_times: getOneZeroOnePlan(medicine)?.times || [],
       };
       return { ...previous, [index]: { ...current, ...patch } };
     });
@@ -685,6 +716,14 @@ export default function HomePage({
       return next;
     });
     setScheduleErrors((previous) => ({ ...previous, [index]: "" }));
+    setWhatsappStatus("");
+    if (
+      getOneZeroOnePlan(reviewResult?.medicines?.[index]?.extracted_medicine) &&
+      (Object.prototype.hasOwnProperty.call(patch, "confirmed_times") ||
+       Object.prototype.hasOwnProperty.call(patch, "dose"))
+    ) {
+      setNotationConfirmations((previous) => ({ ...previous, [index]: false }));
+    }
   }
 
   async function submitDailyRoutine(entry, index) {
@@ -708,10 +747,19 @@ export default function HomePage({
       return;
     }
 
+    const shorthand = getOneZeroOnePlan(medicine);
+    if (shorthand && !notationConfirmations[index]) {
+      setScheduleErrors((previous) => ({
+        ...previous,
+        [index]: "ഈ മരുന്നിലെ 1-0-1 രേഖയുടെ രാവിലെ–ഉച്ച–രാത്രി വ്യാഖ്യാനം പരിശോധിച്ച് സ്ഥിരീകരിക്കുക.",
+      }));
+      return;
+    }
+
     if (!draft.confirmed_times.length) {
       setScheduleErrors((previous) => ({
         ...previous,
-        [index]: "ഡോക്ടറോ ഫാർമസിസ്റ്റോ വ്യക്തമായി സ്ഥിരീകരിച്ച സമയങ്ങളിൽ നിന്ന് കുറഞ്ഞത് ഒന്ന് തിരഞ്ഞെടുക്കുക.",
+        [index]: "ഈ മരുന്നിനായി കുറിപ്പടിയിൽ സ്ഥിരീകരിച്ച സമയങ്ങൾ തിരഞ്ഞെടുക്കുക.",
       }));
       return;
     }
