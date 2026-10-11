@@ -52,21 +52,54 @@ const steps = [
     icon: ShieldCheck,
   },
   {
-    label: "4. ദൈനംദിന ക്രമം",
-    subtitle: "മരുന്നുകളുടെ സമയക്രമം",
-    icon: CalendarDays,
-  },
-  {
     label: "5. മലയാളം ശബ്ദസഹായി",
     subtitle: "മരുന്ന് വിവരങ്ങൾ കേൾക്കുക",
     icon: Volume2,
   },
   {
-    label: "6. പ്രിന്റ് ചാർട്ട്",
-    subtitle: "അച്ചടിക്കാനുള്ള മരുന്ന് പട്ടിക",
+    label: "6. സമ്പൂർണ്ണ ദിനചര്യ",
+    subtitle: "എല്ലാ മരുന്നുകളും · WhatsApp അറിയിപ്പുകൾ",
     icon: Printer,
   },
 ];
+
+/*
+  Recognize 1-0-1 only on the medicine whose extracted instructions contain it.
+  This is a proposed morning-one / afternoon-zero / night-one interpretation
+  and must be explicitly confirmed against that medicine's original prescription.
+*/
+function getOneZeroOnePlan(medicine) {
+  const values = [
+    medicine?.original_dosage_notation,
+    medicine?.prescribed_dose,
+    medicine?.frequency,
+  ];
+  const notation = values
+    .map((value) => String(value || "").trim())
+    .find((value) => /^1\\s*[-–]\\s*0\\s*[-–]\\s*1$/.test(value));
+  if (!notation) return null;
+
+  return {
+    notation,
+    times: ["morning", "night"],
+    morning: 1,
+    afternoon: 0,
+    night: 1,
+  };
+}
+
+/*
+  Clean a tablet-form prefix for display only. The original extracted value stays
+  in reviewResult so it can still be compared against the uploaded prescription.
+*/
+function getMedicineDisplay(medicineName) {
+  const original = String(medicineName ?? "").trim();
+  const tabletPrefix = original.match(/^(?:tab(?:let)?\.?)\s+(.+)$/i);
+  if (tabletPrefix) {
+    return { name: tabletPrefix[1].trim(), dosageForm: "Tablet (ഗുളിക)" };
+  }
+  return { name: original, dosageForm: "" };
+}
 
 /*
   Translate only a small set of unambiguous common phrases for speech.
@@ -196,19 +229,29 @@ export default function HomePage({
   const [reviewConfirmed, setReviewConfirmed] = useState({});
   const [audioStatus, setAudioStatus] = useState("");
   const [speakingMedicineIndex, setSpeakingMedicineIndex] = useState(null);
+  const [audioSources, setAudioSources] = useState({});
   const [scheduleDrafts, setScheduleDrafts] = useState({});
   const [scheduleResults, setScheduleResults] = useState({});
   const [scheduleLoading, setScheduleLoading] = useState({});
   const [scheduleErrors, setScheduleErrors] = useState({});
+  const [notationConfirmations, setNotationConfirmations] = useState({});
+  const [whatsappPhone, setWhatsappPhone] = useState("");
+  const [whatsappConsent, setWhatsappConsent] = useState(false);
+  const [whatsappTimes, setWhatsappTimes] = useState({});
+  const [whatsappStatus, setWhatsappStatus] = useState("");
+  const [whatsappSaving, setWhatsappSaving] = useState(false);
 
   const conversionTimer = useRef(null);
   const fileInputRef = useRef(null);
+  const audioPlayerRef = useRef(null);
+  const audioElementsRef = useRef({});
+  const audioSourcesRef = useRef({});
 
   useEffect(() => {
     const sectionByStep = {
       2: "review-results",
-      3: "daily-routine",
-      4: "audio-guide",
+      3: "audio-guide",
+      4: "daily-routine",
     };
     const sectionId = sectionByStep[activeStep];
     if (!sectionId || !reviewResult) return undefined;
@@ -416,7 +459,26 @@ export default function HomePage({
     setScheduleResults({});
     setScheduleLoading({});
     setScheduleErrors({});
-    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+    setNotationConfirmations({});
+    setWhatsappTimes({});
+    setWhatsappStatus("");
+    setWhatsappConsent(false);
+    if (audioPlayerRef.current) {
+      audioPlayerRef.current.pause();
+      audioPlayerRef.current = null;
+    }
+    Object.values(audioElementsRef.current).forEach((player) => {
+      if (player) {
+        player.pause();
+        player.currentTime = 0;
+      }
+    });
+    Object.values(audioSourcesRef.current).forEach((url) => URL.revokeObjectURL(url));
+    audioElementsRef.current = {};
+    audioSourcesRef.current = {};
+    setAudioSources({});
+    setAudioStatus("");
+    setSpeakingMedicineIndex(null);
 
     if (inputMode === "upload" && !uploadedFile) {
       setMessage("Please upload a prescription image first.");
@@ -475,14 +537,9 @@ export default function HomePage({
     Speak only OCR fields that the user has compared with the original image.
     This confirms transcription review, not clinical approval.
   */
-  function speakMedicineAudio(medicine, index) {
+  async function speakMedicineAudio(medicine, index) {
     if (!reviewConfirmed[index]) {
       setAudioStatus("ആദ്യം മൂന്നാം ഘട്ടത്തിൽ കുറിപ്പടിയിലെ വിവരങ്ങൾ പരിശോധിക്കുക.");
-      return;
-    }
-
-    if (!("speechSynthesis" in window) || !("SpeechSynthesisUtterance" in window)) {
-      setAudioStatus("ഈ ഉപകരണത്തിൽ ശബ്ദം പ്ലേ ചെയ്യാൻ കഴിയുന്നില്ല.");
       return;
     }
 
@@ -505,8 +562,10 @@ export default function HomePage({
         .map((item) => timeLabels[item.time] || "")
         .filter(Boolean)
         .join(", ");
+      const medicineDisplay = getMedicineDisplay(first.medicine_name || medicine.medicine_name);
       fields = [
-        ["മരുന്നിന്റെ പേര്", first.medicine_name],
+        ["മരുന്നിന്റെ പേര്", medicineDisplay.name],
+        ["മരുന്നിന്റെ രൂപം", medicineDisplay.dosageForm],
         ["ശക്തി", first.strength],
         ["ഡോസ്", first.dose],
         ["സ്ഥിരീകരിച്ച സമയം", confirmedTimes],
@@ -515,8 +574,10 @@ export default function HomePage({
       ];
       intro = "ശ്രദ്ധിക്കുക. ഇത് നിങ്ങൾ പരിശോധിച്ച് സ്ഥിരീകരിച്ച ദൈനംദിന ക്രമമാണ്. ചികിത്സാ നിർദ്ദേശത്തിന് പകരമല്ല.";
     } else {
+      const medicineDisplay = getMedicineDisplay(medicine.medicine_name);
       fields = [
-        ["മരുന്നിന്റെ പേര്", medicine.medicine_name],
+        ["മരുന്നിന്റെ പേര്", medicineDisplay.name],
+        ["മരുന്നിന്റെ രൂപം", medicineDisplay.dosageForm],
         ["ശക്തി", medicine.strength],
         ["കുറിപ്പടിയിലെ ഡോസ് രേഖ", medicine.original_dosage_notation || medicine.prescribed_dose],
         ["ആവൃത്തി", medicine.frequency],
@@ -533,57 +594,125 @@ export default function HomePage({
       "ഡോസ് അല്ലെങ്കിൽ സമയം സംബന്ധിച്ച് സംശയമുണ്ടെങ്കിൽ ഡോക്ടറെയോ ഫാർമസിസ്റ്റിനെയോ സമീപിക്കുക."
     ].join(" ");
 
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(spokenText);
-    utterance.lang = "ml-IN";
-    utterance.rate = 0.88;
-    utterance.pitch = 1;
+    if (audioPlayerRef.current) {
+      audioPlayerRef.current.pause();
+      audioPlayerRef.current.currentTime = 0;
+      audioPlayerRef.current = null;
+    }
+    Object.values(audioElementsRef.current).forEach((player) => {
+      if (player) {
+        player.pause();
+        player.currentTime = 0;
+      }
+    });
 
-    const voices = window.speechSynthesis.getVoices();
-    const malayalamVoice = voices.find((voice) => /^ml([_-]|$)/i.test(voice.lang));
-    if (malayalamVoice) utterance.voice = malayalamVoice;
+    setSpeakingMedicineIndex(index);
+    setAudioStatus("സ്വാഭാവിക മലയാള ശബ്ദം തയ്യാറാക്കുന്നു…");
 
-    utterance.onstart = () => {
-      setSpeakingMedicineIndex(index);
-      setAudioStatus(
-        malayalamVoice
-          ? "മലയാളം ശബ്ദസഹായി പ്ലേ ചെയ്യുന്നു."
-          : "ഉപകരണത്തിൽ മലയാളം ശബ്ദം ലഭ്യമല്ലായിരിക്കാം. ശബ്ദ ക്രമീകരണങ്ങളിൽ മലയാളം ശബ്ദ പിന്തുണ പരിശോധിക്കുക."
-      );
-    };
-    utterance.onend = () => setSpeakingMedicineIndex(null);
-    utterance.onerror = () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/audio-guide`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: spokenText }),
+      });
+
+      if (!response.ok) {
+        let detail = "";
+        try {
+          const errorBody = await response.json();
+          detail = errorBody?.detail || "";
+        } catch {
+          // The server may return a non-JSON error body.
+        }
+        throw new Error(detail || "മലയാളം ശബ്ദം സൃഷ്ടിക്കാനായില്ല. വീണ്ടും ശ്രമിക്കുക.");
+      }
+
+      const audioBlob = await response.blob();
+      if (!audioBlob.size || !audioBlob.type.startsWith("audio/")) {
+        throw new Error("മലയാളം ശബ്ദ ഫയൽ ശരിയായി ലഭിച്ചില്ല. വീണ്ടും ശ്രമിക്കുക.");
+      }
+
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const oldUrl = audioSourcesRef.current[index];
+      if (oldUrl) URL.revokeObjectURL(oldUrl);
+
+      audioSourcesRef.current = {
+        ...audioSourcesRef.current,
+        [index]: audioUrl,
+      };
+      setAudioSources({ ...audioSourcesRef.current });
+
+      const player = new Audio(audioUrl);
+      audioPlayerRef.current = player;
+      player.onended = () => {
+        setSpeakingMedicineIndex(null);
+        setAudioStatus("ശബ്ദം പൂർത്തിയായി.");
+      };
+      player.onerror = () => {
+        setSpeakingMedicineIndex(null);
+        setAudioStatus("ശബ്ദം പ്ലേ ചെയ്യാനായില്ല. താഴെയുള്ള പ്ലേ ബട്ടൺ ഉപയോഗിക്കുക.");
+      };
+
+      try {
+        await player.play();
+        setAudioStatus("മലയാളം ശബ്ദസഹായി പ്ലേ ചെയ്യുന്നു.");
+      } catch {
+        // Browser autoplay may be blocked after the network request. The HTML audio
+        // controls below remain available and will not fall back to an English voice.
+        setSpeakingMedicineIndex(null);
+        setAudioStatus("മലയാളം ശബ്ദം തയ്യാറായി. താഴെയുള്ള പ്ലേ ബട്ടൺ അമർത്തുക.");
+      }
+    } catch (error) {
       setSpeakingMedicineIndex(null);
-      setAudioStatus("ശബ്ദം പ്ലേ ചെയ്യാനായില്ല. ഉപകരണത്തിൽ മലയാളം ശബ്ദ പിന്തുണയുണ്ടോയെന്ന് പരിശോധിക്കുക.");
-    };
-
-    setAudioStatus("മലയാളം ശബ്ദസഹായി ആരംഭിക്കുന്നു…");
-    window.speechSynthesis.speak(utterance);
+      setAudioStatus(
+        error instanceof TypeError
+          ? "ശബ്ദ സേവനവുമായി ബന്ധപ്പെടാനായില്ല. OCR API പ്രവർത്തിക്കുന്നുണ്ടോയെന്ന് പരിശോധിക്കുക."
+          : (error instanceof Error && error.message ? error.message : "മലയാളം ശബ്ദം സൃഷ്ടിക്കാനായില്ല.")
+      );
+    }
   }
 
   function stopMedicineAudio() {
-    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+    if (audioPlayerRef.current) {
+      audioPlayerRef.current.pause();
+      audioPlayerRef.current.currentTime = 0;
+      audioPlayerRef.current = null;
+    }
+    Object.values(audioElementsRef.current).forEach((player) => {
+      if (player) {
+        player.pause();
+        player.currentTime = 0;
+      }
+    });
     setSpeakingMedicineIndex(null);
     setAudioStatus("ശബ്ദം നിർത്തി.");
   }
 
   useEffect(() => () => {
-    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+    if (audioPlayerRef.current) {
+      audioPlayerRef.current.pause();
+      audioPlayerRef.current = null;
+    }
+    Object.values(audioElementsRef.current).forEach((player) => player?.pause());
+    audioElementsRef.current = {};
+    Object.values(audioSourcesRef.current).forEach((url) => URL.revokeObjectURL(url));
+    audioSourcesRef.current = {};
   }, []);
 
   function getRoutineDose(medicine) {
+    // A shorthand such as 1-0-1 is a timing pattern, not a dose amount.
     const dose = String(medicine?.prescribed_dose || "").trim();
-    // Do not treat common frequency shorthand like 1-0-1 as an amount per dose.
     const isFrequencyNotation = /^\d+\s*[-–/]\s*\d+\s*[-–/]\s*\d+(?:\s*[-–/]\s*\d+)?$/.test(dose);
     return isFrequencyNotation ? "" : dose;
   }
 
   function getScheduleDraft(index, medicine) {
+    const shorthand = getOneZeroOnePlan(medicine);
     return scheduleDrafts[index] || {
-      medicine_name: medicine?.medicine_name || "",
+      medicine_name: getMedicineDisplay(medicine?.medicine_name).name || "",
       strength: medicine?.strength || "",
       dose: getRoutineDose(medicine),
-      confirmed_times: [],
+      confirmed_times: shorthand ? shorthand.times : [],
     };
   }
 
@@ -591,10 +720,10 @@ export default function HomePage({
     setScheduleDrafts((previous) => {
       const medicine = reviewResult?.medicines?.[index]?.extracted_medicine;
       const current = previous[index] || {
-        medicine_name: medicine?.medicine_name || "",
+        medicine_name: getMedicineDisplay(medicine?.medicine_name).name || "",
         strength: medicine?.strength || "",
         dose: getRoutineDose(medicine),
-        confirmed_times: [],
+        confirmed_times: getOneZeroOnePlan(medicine)?.times || [],
       };
       return { ...previous, [index]: { ...current, ...patch } };
     });
@@ -604,6 +733,14 @@ export default function HomePage({
       return next;
     });
     setScheduleErrors((previous) => ({ ...previous, [index]: "" }));
+    setWhatsappStatus("");
+    if (
+      getOneZeroOnePlan(reviewResult?.medicines?.[index]?.extracted_medicine) &&
+      (Object.prototype.hasOwnProperty.call(patch, "confirmed_times") ||
+       Object.prototype.hasOwnProperty.call(patch, "dose"))
+    ) {
+      setNotationConfirmations((previous) => ({ ...previous, [index]: false }));
+    }
   }
 
   async function submitDailyRoutine(entry, index) {
@@ -627,10 +764,19 @@ export default function HomePage({
       return;
     }
 
+    const shorthand = getOneZeroOnePlan(medicine);
+    if (shorthand && !notationConfirmations[index]) {
+      setScheduleErrors((previous) => ({
+        ...previous,
+        [index]: "ഈ മരുന്നിലെ 1-0-1 രേഖയുടെ രാവിലെ–ഉച്ച–രാത്രി വ്യാഖ്യാനം പരിശോധിച്ച് സ്ഥിരീകരിക്കുക.",
+      }));
+      return;
+    }
+
     if (!draft.confirmed_times.length) {
       setScheduleErrors((previous) => ({
         ...previous,
-        [index]: "ഡോക്ടറോ ഫാർമസിസ്റ്റോ വ്യക്തമായി സ്ഥിരീകരിച്ച സമയങ്ങളിൽ നിന്ന് കുറഞ്ഞത് ഒന്ന് തിരഞ്ഞെടുക്കുക.",
+        [index]: "ഈ മരുന്നിനായി കുറിപ്പടിയിൽ സ്ഥിരീകരിച്ച സമയങ്ങൾ തിരഞ്ഞെടുക്കുക.",
       }));
       return;
     }
@@ -680,6 +826,109 @@ export default function HomePage({
   }
 
 
+  function getCompleteRoutineData() {
+    const medicines = reviewResult?.medicines || [];
+    const readyCount = medicines.filter((_, index) =>
+      scheduleResults[index]?.status === "ready_for_display" &&
+      Array.isArray(scheduleResults[index]?.schedule)
+    ).length;
+
+    const items = medicines.flatMap((entry, index) => {
+      const result = scheduleResults[index];
+      if (result?.status !== "ready_for_display" || !Array.isArray(result.schedule)) return [];
+      const medicine = entry.extracted_medicine || {};
+      return result.schedule.map((item) => ({
+        ...item,
+        sourceIndex: index,
+        sourceNotation: getOneZeroOnePlan(medicine)?.notation || "",
+      }));
+    });
+
+    const slotMeta = [
+      { slot: "morning", label: "രാവിലെ" },
+      { slot: "afternoon", label: "ഉച്ചയ്ക്ക്" },
+      { slot: "evening", label: "വൈകുന്നേരം" },
+      { slot: "night", label: "രാത്രി" },
+    ];
+
+    return {
+      medicineCount: medicines.length,
+      readyCount,
+      allReady: medicines.length > 0 && readyCount === medicines.length,
+      items,
+      groups: slotMeta.map((slot) => ({
+        ...slot,
+        items: items.filter((item) => item.time === slot.slot),
+      })),
+      noonIsNilForAll: medicines.length > 0 && medicines.every((entry) => {
+        const plan = getOneZeroOnePlan(entry.extracted_medicine || {});
+        return Boolean(plan && plan.afternoon === 0);
+      }),
+    };
+  }
+
+  async function saveWhatsAppReminders() {
+    setWhatsappStatus("");
+    const routine = getCompleteRoutineData();
+
+    if (!routine.allReady) {
+      setWhatsappStatus("എല്ലാ മരുന്നുകളുടെയും ദിനചര്യ തയ്യാറാക്കിയ ശേഷം മാത്രം അറിയിപ്പുകൾ സജ്ജമാക്കാം.");
+      return;
+    }
+    if (!whatsappPhone.trim()) {
+      setWhatsappStatus("WhatsApp നമ്പർ രാജ്യകോഡോടെ നൽകുക. ഉദാഹരണം: +919876543210");
+      return;
+    }
+    if (!whatsappConsent) {
+      setWhatsappStatus("ഈ നമ്പറിന്റെ ഉടമ WhatsApp ഓർമ്മപ്പെടുത്തലുകൾക്ക് അനുമതി നൽകിയതായി സ്ഥിരീകരിക്കുക.");
+      return;
+    }
+
+    const activeGroups = routine.groups.filter((group) => group.items.length > 0);
+    if (!activeGroups.length || activeGroups.some((group) => !whatsappTimes[group.slot])) {
+      setWhatsappStatus("ഓരോ മരുന്ന് സമയവിഭാഗത്തിനും WhatsApp അയക്കേണ്ട കൃത്യമായ സമയം തിരഞ്ഞെടുക്കുക.");
+      return;
+    }
+
+    setWhatsappSaving(true);
+    try {
+      const response = await fetch(`${SAFETY_API_BASE_URL}/reminders/whatsapp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recipient_phone: whatsappPhone.trim(),
+          timezone: "Asia/Kolkata",
+          consent: true,
+          reminders: activeGroups.map((group) => ({
+            slot: group.slot,
+            send_time: whatsappTimes[group.slot],
+            medicines: group.items.map((item) => ({
+              medicine_name: item.medicine_name,
+              strength: item.strength,
+              dose: item.dose,
+            })),
+          })),
+        }),
+      });
+
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.detail || "WhatsApp ഓർമ്മപ്പെടുത്തലുകൾ സജ്ജമാക്കാനായില്ല.");
+      }
+      setWhatsappStatus(
+        `${payload.reminders_created || activeGroups.length} സമയങ്ങളിലേക്കുള്ള WhatsApp ഓർമ്മപ്പെടുത്തലുകൾ സജ്ജമാക്കി. അയയ്ക്കൽ സമയം: ${activeGroups.map((group) => `${group.label} ${whatsappTimes[group.slot]}`).join(", ")}.`
+      );
+    } catch (error) {
+      setWhatsappStatus(
+        error instanceof TypeError
+          ? "Safety API-യുമായി ബന്ധപ്പെടാനായില്ല. സുരക്ഷാ സേവനം പ്രവർത്തിക്കുന്നുണ്ടോയെന്ന് പരിശോധിക്കുക."
+          : (error instanceof Error && error.message ? error.message : "WhatsApp ഓർമ്മപ്പെടുത്തലുകൾ സജ്ജമാക്കാനായില്ല.")
+      );
+    } finally {
+      setWhatsappSaving(false);
+    }
+  }
+
   /*
     Handle workflow navigation.
   */
@@ -718,9 +967,9 @@ export default function HomePage({
       return;
     }
 
-    if (index === 3) {
+    if (index === 3 || index === 4) {
       if (!reviewResult || !Array.isArray(reviewResult.medicines) || reviewResult.medicines.length === 0) {
-        setMessage("ദൈനംദിന ക്രമം തയ്യാറാക്കാൻ ആദ്യം കുറിപ്പടി വിശകലനം ചെയ്യുക.");
+        setMessage("ആദ്യം കുറിപ്പടി വിശകലനം ചെയ്യുക.");
         return;
       }
       if (reviewResult.medicines.some((_, medicineIndex) => !reviewConfirmed[medicineIndex])) {
@@ -729,17 +978,7 @@ export default function HomePage({
         return;
       }
 
-      setActiveStep(3);
-      return;
-    }
-
-    if (index === 4) {
-      if (!reviewResult || !Array.isArray(reviewResult.medicines) || reviewResult.medicines.length === 0) {
-        setMessage("ആദ്യം കുറിപ്പടി വിശകലനം ചെയ്ത് മരുന്ന് വിവരങ്ങൾ പരിശോധിക്കുക.");
-        return;
-      }
-
-      setActiveStep(4);
+      setActiveStep(index);
       return;
     }
 
@@ -752,6 +991,8 @@ export default function HomePage({
 
     setActiveStep(index);
   }
+
+  const completeRoutine = getCompleteRoutineData();
 
   return (
     <div className="carelekha-app">
@@ -1214,6 +1455,7 @@ export default function HomePage({
                 <div className="cl-review-list">
                   {reviewResult.medicines.map((entry, index) => {
                     const medicine = entry.extracted_medicine || {};
+                    const medicineDisplay = getMedicineDisplay(medicine.medicine_name);
                     const identity = entry.identity_check || {};
                     const candidates = entry.ml_candidates?.candidates || [];
                     return (
@@ -1221,11 +1463,12 @@ export default function HomePage({
                         <div className="cl-review-medicine-top">
                           <div>
                             <span className="cl-review-index">മരുന്ന് {index + 1}</span>
-                            <h3>{medicine.medicine_name || "പേര് വായിക്കാനായില്ല"}</h3>
+                            <h3>{medicineDisplay.name || "പേര് വായിക്കാനായില്ല"}</h3>
                           </div>
                           <span className="cl-review-pill">പരിശോധന ആവശ്യമാണ്</span>
                         </div>
                         <dl className="cl-review-fields">
+                          {medicineDisplay.dosageForm && <div><dt>മരുന്നിന്റെ രൂപം</dt><dd>{medicineDisplay.dosageForm}</dd></div>}
                           <div><dt>ശക്തി</dt><dd>{medicine.strength || "വായിക്കാനായില്ല"}</dd></div>
                           <div><dt>കുറിപ്പടിയിലെ ഡോസ് രേഖ</dt><dd>{medicine.original_dosage_notation || medicine.prescribed_dose || "വായിക്കാനായില്ല"}</dd></div>
                           <div><dt>ആവൃത്തി</dt><dd>{medicine.frequency ? valueForMalayalamSpeech("ആവൃത്തി", medicine.frequency) : "വായിക്കാനായില്ല"}</dd></div>
@@ -1295,7 +1538,7 @@ export default function HomePage({
                     disabled={!reviewResult.medicines.every((_, medicineIndex) => Boolean(reviewConfirmed[medicineIndex]))}
                     onClick={() => setActiveStep(3)}
                   >
-                    അടുത്ത ഘട്ടം: ദൈനംദിന ക്രമം
+                    അടുത്ത ഘട്ടം: മലയാളം ശബ്ദസഹായി
                     <ChevronRight size={17} />
                   </button>
                 </div>
@@ -1303,19 +1546,152 @@ export default function HomePage({
             </section>
           )}
 
+          {/* ഘട്ടം 5: മലയാളം ശബ്ദസഹായി */}
           {reviewResult && activeStep === 3 && Array.isArray(reviewResult.medicines) && reviewResult.medicines.length > 0 && (
-            <section className="cl-daily-routine" id="daily-routine" aria-live="polite">
+            <section className="cl-audio-guide-section" id="audio-guide" aria-live="polite">
               <div className="cl-routine-heading">
-                <span className="cl-review-eyebrow">ഘട്ടം 4 · ദൈനംദിന ക്രമം</span>
-                <h2>ദൈനംദിന മരുന്ന് ക്രമം</h2>
-                <p>പകർത്തിയ ഡോസും തിരഞ്ഞെടുത്ത സമയവും യഥാർത്ഥ കുറിപ്പടിയുമായി പരിശോധിക്കുക.</p>
+                <span className="cl-review-eyebrow">ഘട്ടം 5 · മലയാളം ശബ്ദസഹായി</span>
+                <h2>മരുന്ന് വിവരങ്ങൾ മലയാളത്തിൽ കേൾക്കുക</h2>
+                <p>മൂന്നാം ഘട്ടത്തിൽ യഥാർത്ഥ കുറിപ്പടിയുമായി താരതമ്യം ചെയ്ത് പരിശോധിച്ച വിവരങ്ങൾ മാത്രം ഇവിടെ കേൾക്കാം.</p>
+              </div>
+
+              <div className="cl-routine-warning">
+                <Volume2 size={17} />
+                <span>ശബ്ദസഹായി കുറിപ്പടിയിൽ നിന്ന് ലഭിച്ച വിവരങ്ങൾ വായിച്ചു കേൾപ്പിക്കുക മാത്രമാണ് ചെയ്യുന്നത്. മരുന്നിന്റെയോ ഡോസിന്റെയോ ചികിത്സാ അംഗീകാരമല്ല ഇത്. വ്യക്തമല്ലാത്ത വിവരങ്ങൾ ഊഹിക്കില്ല.</span>
               </div>
 
               <div className="cl-routine-list">
                 {reviewResult.medicines.map((entry, index) => {
                   const medicine = entry.extracted_medicine || {};
+                  const routineResult = scheduleResults[index];
+                  const schedule = routineResult?.status === "ready_for_display" && Array.isArray(routineResult.schedule)
+                    ? routineResult.schedule
+                    : [];
+                  const first = schedule[0];
+                  const medicineDisplay = getMedicineDisplay(first?.medicine_name || medicine.medicine_name);
+                  const timeLabels = {
+                    morning: "രാവിലെ",
+                    afternoon: "ഉച്ചയ്ക്ക്",
+                    evening: "വൈകുന്നേരം",
+                    night: "രാത്രി",
+                  };
+                  const times = schedule.map((item) => timeLabels[item.time]).filter(Boolean).join(", ");
+
+                  return (
+                    <article className="cl-routine-medicine" key={`audio-${medicine.medicine_name || "medicine"}-${index}`}>
+                      <div className="cl-routine-medicine-title">
+                        <div>
+                          <span className="cl-review-index">മരുന്ന് {index + 1}</span>
+                          <h3>{medicineDisplay.name || "പേര് വായിക്കാനായില്ല"}</h3>
+                        </div>
+                        <span className="cl-review-pill">{schedule.length ? "ക്രമം തയ്യാറായി" : "ക്രമം തയ്യാറാക്കണം"}</span>
+                      </div>
+
+                      {first ? (
+                        <dl className="cl-review-fields">
+                          {medicineDisplay.dosageForm && <div><dt>മരുന്നിന്റെ രൂപം</dt><dd>{medicineDisplay.dosageForm}</dd></div>}
+                          <div><dt>ശക്തി</dt><dd>{first.strength}</dd></div>
+                          <div><dt>ഡോസ്</dt><dd>{first.dose}</dd></div>
+                          <div><dt>സ്ഥിരീകരിച്ച സമയം</dt><dd>{times}</dd></div>
+                          <div><dt>ഭക്ഷണ നിർദ്ദേശം</dt><dd>{first.instruction ? valueForMalayalamSpeech("ഭക്ഷണ നിർദ്ദേശം", first.instruction) : "വ്യക്തമായി രേഖപ്പെടുത്തിയിട്ടില്ല"}</dd></div>
+                          {medicine.duration && <div><dt>കാലയളവ്</dt><dd>{valueForMalayalamSpeech("ചികിത്സാ കാലയളവ്", medicine.duration)}</dd></div>}
+                        </dl>
+                      ) : (
+                        <>
+                          <dl className="cl-review-fields">
+                            {medicineDisplay.dosageForm && <div><dt>മരുന്നിന്റെ രൂപം</dt><dd>{medicineDisplay.dosageForm}</dd></div>}
+                            <div><dt>ശക്തി</dt><dd>{medicine.strength || "വായിക്കാനായില്ല"}</dd></div>
+                            <div><dt>കുറിപ്പടിയിലെ ഡോസ് രേഖ</dt><dd>{medicine.original_dosage_notation || medicine.prescribed_dose || "വായിക്കാനായില്ല"}</dd></div>
+                            <div><dt>ആവൃത്തി</dt><dd>{medicine.frequency ? valueForMalayalamSpeech("ആവൃത്തി", medicine.frequency) : "വായിക്കാനായില്ല"}</dd></div>
+                            <div><dt>ഭക്ഷണ നിർദ്ദേശം</dt><dd>{medicine.food_instruction ? valueForMalayalamSpeech("ഭക്ഷണ നിർദ്ദേശം", medicine.food_instruction) : "വായിക്കാനായില്ല"}</dd></div>
+                            {medicine.duration && <div><dt>കാലയളവ്</dt><dd>{valueForMalayalamSpeech("ചികിത്സാ കാലയളവ്", medicine.duration)}</dd></div>}
+                          </dl>
+                          <p className="cl-routine-confirm-note">ദൈനംദിന സമയക്രമം തയ്യാറാക്കിയിട്ടില്ല; പരിശോധന ചെയ്ത കുറിപ്പടി വിവരങ്ങൾ മാത്രം കേൾക്കാം.</p>
+                        </>
+                      )}
+
+                      <div className="cl-audio-actions">
+                        <button
+                          type="button"
+                          className="cl-audio-button"
+                          onClick={() => speakMedicineAudio(medicine, index)}
+                          disabled={!reviewConfirmed[index]}
+                        >
+                          <Volume2 size={16} />
+                          {speakingMedicineIndex === index ? "ശബ്ദം പ്ലേ ചെയ്യുന്നു…" : first ? "ദൈനംദിന ക്രമം കേൾക്കുക" : "കുറിപ്പടി വിവരങ്ങൾ കേൾക്കുക"}
+                        </button>
+                        {speakingMedicineIndex === index && (
+                          <button
+                            type="button"
+                            className="cl-audio-stop-button"
+                            onClick={stopMedicineAudio}
+                          >
+                            നിർത്തുക
+                          </button>
+                        )}
+                      </div>
+                      {audioSources[index] && (
+                        <audio
+                          className="cl-generated-audio"
+                          controls
+                          preload="metadata"
+                          src={audioSources[index]}
+                          ref={(element) => {
+                            if (element) audioElementsRef.current[index] = element;
+                            else delete audioElementsRef.current[index];
+                          }}
+                          onPlay={() => {
+                            if (audioPlayerRef.current) {
+                              audioPlayerRef.current.pause();
+                              audioPlayerRef.current = null;
+                            }
+                            setSpeakingMedicineIndex(index);
+                            setAudioStatus("മലയാളം ശബ്ദസഹായി പ്ലേ ചെയ്യുന്നു.");
+                          }}
+                          onEnded={() => {
+                            setSpeakingMedicineIndex(null);
+                            setAudioStatus("ശബ്ദം പൂർത്തിയായി.");
+                          }}
+                        >
+                          നിങ്ങളുടെ ബ്രൗസർ ശബ്ദം പ്ലേ ചെയ്യാൻ പിന്തുണയ്ക്കുന്നില്ല.
+                        </audio>
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
+              {audioStatus && (
+                <p className="cl-audio-status" role="status" aria-live="polite">{audioStatus}</p>
+              )}
+              <div className="cl-workflow-next">
+                <button
+                  type="button"
+                  className="cl-routine-submit"
+                  onClick={() => setActiveStep(4)}
+                >
+                  അടുത്ത ഘട്ടം: സമ്പൂർണ്ണ ദിനചര്യ
+                  <ChevronRight size={17} />
+                </button>
+              </div>
+            </section>
+          )}
+
+
+          {reviewResult && activeStep === 4 && Array.isArray(reviewResult.medicines) && reviewResult.medicines.length > 0 && (
+            <section className="cl-daily-routine" id="daily-routine" aria-live="polite">
+              <div className="cl-routine-heading">
+                <span className="cl-review-eyebrow">ഘട്ടം 6 · സമ്പൂർണ്ണ ദിനചര്യ</span>
+                <h2>എല്ലാ മരുന്നുകളുടെയും ദൈനംദിന ക്രമം</h2>
+                <p>ഓരോ മരുന്നിന്റെയും വിവരങ്ങൾ പരിശോധിച്ച് സമയങ്ങൾ സ്ഥിരീകരിക്കുക. തുടർന്ന് മുഴുവൻ പട്ടികയും ഇവിടെ ഒരുമിച്ച് കാണാം.</p>
+              </div>
+
+              <div className="cl-routine-list">
+                {reviewResult.medicines.map((entry, index) => {
+                  const medicine = entry.extracted_medicine || {};
+                  const medicineDisplay = getMedicineDisplay(medicine.medicine_name);
                   const draft = getScheduleDraft(index, medicine);
                   const result = scheduleResults[index];
+                  const shorthand = getOneZeroOnePlan(medicine);
                   const times = [
                     { value: "morning", label: "രാവിലെ" },
                     { value: "afternoon", label: "ഉച്ചയ്ക്ക്" },
@@ -1328,8 +1704,11 @@ export default function HomePage({
                       <div className="cl-routine-medicine-title">
                         <div>
                           <span className="cl-review-index">മരുന്ന് {index + 1}</span>
-                          <h3>{medicine.medicine_name || "പേര് വായിക്കാനായില്ല"}</h3>
-                          <p className="cl-routine-medicine-meta">ശക്തി: {medicine.strength || "വായിക്കാനായില്ല"}</p>
+                          <h3>{medicineDisplay.name || "പേര് വായിക്കാനായില്ല"}</h3>
+                          <p className="cl-routine-medicine-meta">
+                            {medicineDisplay.dosageForm && <>മരുന്നിന്റെ രൂപം: {medicineDisplay.dosageForm} · </>}
+                            ശക്തി: {medicine.strength || "വായിക്കാനായില്ല"}
+                          </p>
                         </div>
                         <span className="cl-review-pill">{reviewConfirmed[index] ? "വിവരങ്ങൾ പരിശോധിച്ചു" : "പരിശോധന ആവശ്യമാണ്"}</span>
                       </div>
@@ -1377,8 +1756,32 @@ export default function HomePage({
                             </label>
                           ))}
                         </div>
-                        <p>1-0-1 പോലുള്ള ഡോസ് രേഖകളിൽ നിന്ന് സമയം സ്വയം കണക്കാക്കില്ല.</p>
+                        <p>ഈ മരുന്നിന്റെ യഥാർത്ഥ കുറിപ്പടിയുമായി സമയം താരതമ്യം ചെയ്യുക.</p>
                       </fieldset>
+
+                      {shorthand && (
+                        <div className="cl-notation-confirmation">
+                          <p>
+                            കുറിപ്പടിയിലെ <strong>{shorthand.notation}</strong> എന്ന രേഖ:
+                            രാവിലെ 1 · ഉച്ചയ്ക്ക് 0 (മരുന്നില്ല) · രാത്രി 1.
+                          </p>
+                          <label>
+                            <input
+                              type="checkbox"
+                              checked={Boolean(notationConfirmations[index])}
+                              onChange={(event) => {
+                                setNotationConfirmations((previous) => ({
+                                  ...previous,
+                                  [index]: event.target.checked,
+                                }));
+                                setScheduleErrors((previous) => ({ ...previous, [index]: "" }));
+                              }}
+                            />
+                            <span>ഈ വ്യാഖ്യാനം ഈ മരുന്നിന്റെ യഥാർത്ഥ കുറിപ്പടിയുമായി പൊരുത്തപ്പെടുന്നു.</span>
+                          </label>
+                          <small>മറ്റു മരുന്നുകൾക്ക് 1-0-1 സ്വയം ബാധകമാക്കില്ല. ഡോസിന്റെ യൂണിറ്റും കുറിപ്പടിയുമായി ഉറപ്പാക്കുക.</small>
+                        </div>
+                      )}
 
                       <p className="cl-routine-confirm-note">
                         വിവരങ്ങൾ ശരിയാണെങ്കിൽ മാത്രം സ്ഥിരീകരിച്ച് തുടരുക.
@@ -1407,7 +1810,7 @@ export default function HomePage({
                           {result.schedule.map((item, itemIndex) => (
                             <div className="cl-routine-output-row" key={`routine-row-${item.time}-${itemIndex}`}>
                               <strong>{({ morning: "രാവിലെ", afternoon: "ഉച്ചയ്ക്ക്", evening: "വൈകുന്നേരം", night: "രാത്രി" })[item.time] || item.time}</strong>
-                              <span>{item.medicine_name} · {item.strength} · {item.dose}</span>
+                              <span>{getMedicineDisplay(item.medicine_name).name}{getMedicineDisplay(item.medicine_name).dosageForm ? ` · ${getMedicineDisplay(item.medicine_name).dosageForm}` : ""} · {item.strength} · {item.dose}</span>
                               {item.instruction && <small>ഭക്ഷണ നിർദ്ദേശം: {item.instruction}</small>}
                             </div>
                           ))}
@@ -1418,120 +1821,120 @@ export default function HomePage({
                   );
                 })}
               </div>
-              <div className="cl-workflow-next">
-                <button
-                  type="button"
-                  className="cl-routine-submit"
-                  onClick={() => setActiveStep(4)}
-                >
-                  അടുത്ത ഘട്ടം: മലയാളം ശബ്ദസഹായി
-                  <Volume2 size={17} />
-                </button>
-              </div>
-            </section>
-          )}
+              <section className="cl-complete-routine-summary" aria-live="polite">
+                <div className="cl-routine-heading">
+                  <h3>സമ്പൂർണ്ണ ദൈനംദിന മരുന്ന് പട്ടിക</h3>
+                  <p>താഴെ എല്ലാ മരുന്നുകളും സമയം അനുസരിച്ച് ഒരുമിച്ച് കാണാം.</p>
+                </div>
 
-          {/* ഘട്ടം 5: മലയാളം ശബ്ദസഹായി */}
-          {reviewResult && activeStep === 4 && Array.isArray(reviewResult.medicines) && reviewResult.medicines.length > 0 && (
-            <section className="cl-audio-guide-section" id="audio-guide" aria-live="polite">
-              <div className="cl-routine-heading">
-                <span className="cl-review-eyebrow">ഘട്ടം 5 · മലയാളം ശബ്ദസഹായി</span>
-                <h2>മരുന്ന് വിവരങ്ങൾ മലയാളത്തിൽ കേൾക്കുക</h2>
-                <p>മൂന്നാം ഘട്ടത്തിൽ യഥാർത്ഥ കുറിപ്പടിയുമായി താരതമ്യം ചെയ്ത് പരിശോധിച്ച വിവരങ്ങൾ മാത്രം ഇവിടെ കേൾക്കാം.</p>
-              </div>
+                {!completeRoutine.allReady && (
+                  <p className="cl-routine-summary-pending">
+                    {completeRoutine.readyCount} / {completeRoutine.medicineCount} മരുന്നുകളുടെ ക്രമം തയ്യാറായി.
+                    പൂർണ്ണ പട്ടികയ്ക്കായി ഓരോ മരുന്നിന്റെയും ക്രമം തയ്യാറാക്കുക.
+                  </p>
+                )}
 
-              <div className="cl-routine-warning">
-                <Volume2 size={17} />
-                <span>ശബ്ദസഹായി കുറിപ്പടിയിൽ നിന്ന് ലഭിച്ച വിവരങ്ങൾ വായിച്ചു കേൾപ്പിക്കുക മാത്രമാണ് ചെയ്യുന്നത്. മരുന്നിന്റെയോ ഡോസിന്റെയോ ചികിത്സാ അംഗീകാരമല്ല ഇത്. വ്യക്തമല്ലാത്ത വിവരങ്ങൾ ഊഹിക്കില്ല.</span>
-              </div>
-
-              <div className="cl-routine-list">
-                {reviewResult.medicines.map((entry, index) => {
-                  const medicine = entry.extracted_medicine || {};
-                  const routineResult = scheduleResults[index];
-                  const schedule = routineResult?.status === "ready_for_display" && Array.isArray(routineResult.schedule)
-                    ? routineResult.schedule
-                    : [];
-                  const first = schedule[0];
-                  const timeLabels = {
-                    morning: "രാവിലെ",
-                    afternoon: "ഉച്ചയ്ക്ക്",
-                    evening: "വൈകുന്നേരം",
-                    night: "രാത്രി",
-                  };
-                  const times = schedule.map((item) => timeLabels[item.time]).filter(Boolean).join(", ");
-
-                  return (
-                    <article className="cl-routine-medicine" key={`audio-${medicine.medicine_name || "medicine"}-${index}`}>
-                      <div className="cl-routine-medicine-title">
-                        <div>
-                          <span className="cl-review-index">മരുന്ന് {index + 1}</span>
-                          <h3>{first?.medicine_name || medicine.medicine_name || "പേര് വായിക്കാനായില്ല"}</h3>
-                        </div>
-                        <span className="cl-review-pill">{schedule.length ? "ക്രമം തയ്യാറായി" : "ക്രമം തയ്യാറാക്കണം"}</span>
-                      </div>
-
-                      {first ? (
-                        <dl className="cl-review-fields">
-                          <div><dt>ശക്തി</dt><dd>{first.strength}</dd></div>
-                          <div><dt>ഡോസ്</dt><dd>{first.dose}</dd></div>
-                          <div><dt>സ്ഥിരീകരിച്ച സമയം</dt><dd>{times}</dd></div>
-                          <div><dt>ഭക്ഷണ നിർദ്ദേശം</dt><dd>{first.instruction ? valueForMalayalamSpeech("ഭക്ഷണ നിർദ്ദേശം", first.instruction) : "വ്യക്തമായി രേഖപ്പെടുത്തിയിട്ടില്ല"}</dd></div>
-                          {medicine.duration && <div><dt>കാലയളവ്</dt><dd>{valueForMalayalamSpeech("ചികിത്സാ കാലയളവ്", medicine.duration)}</dd></div>}
-                        </dl>
-                      ) : (
-                        <>
-                          <dl className="cl-review-fields">
-                            <div><dt>ശക്തി</dt><dd>{medicine.strength || "വായിക്കാനായില്ല"}</dd></div>
-                            <div><dt>കുറിപ്പടിയിലെ ഡോസ് രേഖ</dt><dd>{medicine.original_dosage_notation || medicine.prescribed_dose || "വായിക്കാനായില്ല"}</dd></div>
-                            <div><dt>ആവൃത്തി</dt><dd>{medicine.frequency ? valueForMalayalamSpeech("ആവൃത്തി", medicine.frequency) : "വായിക്കാനായില്ല"}</dd></div>
-                            <div><dt>ഭക്ഷണ നിർദ്ദേശം</dt><dd>{medicine.food_instruction ? valueForMalayalamSpeech("ഭക്ഷണ നിർദ്ദേശം", medicine.food_instruction) : "വായിക്കാനായില്ല"}</dd></div>
-                            {medicine.duration && <div><dt>കാലയളവ്</dt><dd>{valueForMalayalamSpeech("ചികിത്സാ കാലയളവ്", medicine.duration)}</dd></div>}
-                          </dl>
-                          <p className="cl-routine-confirm-note">ദൈനംദിന സമയക്രമം തയ്യാറാക്കിയിട്ടില്ല; പരിശോധന ചെയ്ത കുറിപ്പടി വിവരങ്ങൾ മാത്രം കേൾക്കാം.</p>
-                        </>
-                      )}
-
-                      <div className="cl-audio-actions">
-                        <button
-                          type="button"
-                          className="cl-audio-button"
-                          onClick={() => speakMedicineAudio(medicine, index)}
-                          disabled={!reviewConfirmed[index]}
-                        >
-                          <Volume2 size={16} />
-                          {speakingMedicineIndex === index ? "ശബ്ദം പ്ലേ ചെയ്യുന്നു…" : first ? "ദൈനംദിന ക്രമം കേൾക്കുക" : "കുറിപ്പടി വിവരങ്ങൾ കേൾക്കുക"}
-                        </button>
-                        {speakingMedicineIndex === index && (
-                          <button
-                            type="button"
-                            className="cl-audio-stop-button"
-                            onClick={stopMedicineAudio}
-                          >
-                            നിർത്തുക
-                          </button>
+                {completeRoutine.allReady && (
+                  <div className="cl-complete-routine-groups">
+                    {completeRoutine.groups.map((group) => (
+                      <div className="cl-complete-routine-group" key={group.slot}>
+                        <h4>{group.label}</h4>
+                        {group.items.length > 0 ? (
+                          <div className="cl-complete-routine-items">
+                            {group.items.map((item, itemIndex) => (
+                              <div className="cl-complete-routine-item" key={`all-${group.slot}-${item.sourceIndex}-${itemIndex}`}>
+                                <strong>{getMedicineDisplay(item.medicine_name).name}</strong>
+                                {getMedicineDisplay(item.medicine_name).dosageForm && <small>മരുന്നിന്റെ രൂപം: {getMedicineDisplay(item.medicine_name).dosageForm}</small>}
+                                <span>{item.strength} · {item.dose}</span>
+                                {item.instruction && (
+                                  <small>ഭക്ഷണ നിർദ്ദേശം: {valueForMalayalamSpeech("ഭക്ഷണ നിർദ്ദേശം", item.instruction)}</small>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="cl-routine-empty-slot">ഈ സമയത്തേക്ക് സ്ഥിരീകരിച്ച മരുന്നുകൾ പട്ടികയിൽ ചേർത്തിട്ടില്ല.</p>
                         )}
                       </div>
-                    </article>
-                  );
-                })}
-              </div>
-              {audioStatus && (
-                <p className="cl-audio-status" role="status" aria-live="polite">{audioStatus}</p>
-              )}
-              <div className="cl-workflow-next">
-                <button
-                  type="button"
-                  className="cl-routine-submit"
-                  onClick={() => setMessage("പ്രിന്റ് ചാർട്ട് സൗകര്യം ഉടൻ ലഭ്യമാകും.")}
-                >
-                  അടുത്ത ഘട്ടം: പ്രിന്റ് ചാർട്ട്
-                  <ChevronRight size={17} />
-                </button>
-              </div>
+                    ))}
+                  </div>
+                )}
+
+                <p className="cl-routine-disclaimer">
+                  1-0-1 രേഖയുള്ള മരുന്നുകൾക്ക് മാത്രം രാവിലെ 1 · ഉച്ചയ്ക്ക് 0 · രാത്രി 1 എന്ന വ്യാഖ്യാനം കാണിക്കും. ഈ പട്ടിക കുറിപ്പടിയും നിങ്ങളുടെ സ്ഥിരീകരണവും അടിസ്ഥാനമാക്കിയതാണ്; സംശയമുള്ള വിവരങ്ങൾ ഡോക്ടറെയോ ഫാർമസിസ്റ്റിനെയോ ചോദിച്ച് ഉറപ്പാക്കുക.
+                </p>
+              </section>
+
+              <section className="cl-whatsapp-reminder">
+                <div className="cl-whatsapp-heading">
+                  <span className="cl-review-eyebrow">WhatsApp</span>
+                  <h3>ദിവസേന WhatsApp ഓർമ്മപ്പെടുത്തൽ</h3>
+                  <p>തിരഞ്ഞെടുത്ത സമയത്ത് ആ സമയത്തേക്കുള്ള എല്ലാ മരുന്നുകളും സന്ദേശമായി ലഭിക്കാൻ സജ്ജമാക്കുക.</p>
+                </div>
+
+                {!completeRoutine.allReady ? (
+                  <p className="cl-whatsapp-help">ആദ്യം എല്ലാ മരുന്നുകളുടെയും ദിനചര്യ തയ്യാറാക്കുക.</p>
+                ) : (
+                  <>
+                    <label className="cl-whatsapp-phone">
+                      <span>WhatsApp നമ്പർ (രാജ്യകോഡോടെ)</span>
+                      <input
+                        type="tel"
+                        value={whatsappPhone}
+                        onChange={(event) => setWhatsappPhone(event.target.value)}
+                        placeholder="+919876543210"
+                        autoComplete="tel"
+                      />
+                    </label>
+
+                    <div className="cl-whatsapp-times">
+                      <h4>സന്ദേശം അയയ്ക്കേണ്ട സമയം</h4>
+                      <p>മരുന്നുള്ള ഓരോ സമയവിഭാഗത്തിനും യഥാർത്ഥ സമയം തിരഞ്ഞെടുക്കുക.</p>
+                      {completeRoutine.groups.filter((group) => group.items.length > 0).map((group) => (
+                        <label key={group.slot}>
+                          <span>{group.label} · {group.items.length} മരുന്നുകൾ</span>
+                          <input
+                            type="time"
+                            value={whatsappTimes[group.slot] || ""}
+                            onChange={(event) => {
+                              setWhatsappTimes((previous) => ({ ...previous, [group.slot]: event.target.value }));
+                              setWhatsappStatus("");
+                            }}
+                            required
+                          />
+                        </label>
+                      ))}
+                    </div>
+
+                    <label className="cl-whatsapp-consent">
+                      <input
+                        type="checkbox"
+                        checked={whatsappConsent}
+                        onChange={(event) => setWhatsappConsent(event.target.checked)}
+                      />
+                      <span>ഈ നമ്പറിന്റെ ഉടമയ്ക്ക് WhatsApp മരുന്ന് ഓർമ്മപ്പെടുത്തലുകൾ ലഭിക്കാൻ വ്യക്തമായ അനുമതിയുണ്ട്.</span>
+                    </label>
+
+                    <p className="cl-whatsapp-help">
+                      WhatsApp Business Cloud API, access token, phone number ID, അംഗീകരിച്ച Malayalam utility template എന്നിവ Safety API-യിൽ ക്രമീകരിച്ചിരിക്കണം.
+                    </p>
+
+                    <button
+                      type="button"
+                      className="cl-routine-submit"
+                      onClick={saveWhatsAppReminders}
+                      disabled={whatsappSaving}
+                    >
+                      <Phone size={16} />
+                      {whatsappSaving ? "സജ്ജമാക്കുന്നു…" : "WhatsApp അറിയിപ്പുകൾ സജ്ജമാക്കുക"}
+                    </button>
+                  </>
+                )}
+
+                {whatsappStatus && <p className="cl-whatsapp-status" role="status" aria-live="polite">{whatsappStatus}</p>}
+              </section>
             </section>
           )}
-
 
           {/* PANEL FOOTER */}
           <div className="cl-panel-footer">
