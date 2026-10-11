@@ -1240,35 +1240,23 @@ export default function HomePage({
                         <span className="cl-review-pill">പരിശോധന ആവശ്യമാണ്</span>
                       </div>
 
+                      <details className="cl-routine-identity-details">
+                        <summary>മരുന്നിന്റെ പേരോ ശക്തിയോ തിരുത്തുക</summary>
+                        <div className="cl-routine-form-grid">
+                          <label>
+                            <span>മരുന്നിന്റെ പേര്</span>
+                            <input type="text" value={draft.medicine_name} onChange={(event) => updateScheduleDraft(index, { medicine_name: event.target.value })} autoComplete="off" />
+                          </label>
+                          <label>
+                            <span>ശക്തി</span>
+                            <input type="text" value={draft.strength} onChange={(event) => updateScheduleDraft(index, { strength: event.target.value })} placeholder="കുറിപ്പടിയിൽ ഉള്ളതുപോലെ, ഉദാ. 500 mg" autoComplete="off" />
+                          </label>
+                        </div>
+                      </details>
                       <div className="cl-routine-form-grid">
                         <label>
-                          <span>മരുന്നിന്റെ പേര് സ്ഥിരീകരിക്കുക</span>
-                          <input
-                            type="text"
-                            value={draft.medicine_name}
-                            onChange={(event) => updateScheduleDraft(index, { medicine_name: event.target.value })}
-                            autoComplete="off"
-                          />
-                        </label>
-                        <label>
-                          <span>ശക്തി സ്ഥിരീകരിക്കുക</span>
-                          <input
-                            type="text"
-                            value={draft.strength}
-                            onChange={(event) => updateScheduleDraft(index, { strength: event.target.value })}
-                            placeholder="കുറിപ്പടിയിൽ ഉള്ളതുപോലെ, ഉദാ. 500 mg"
-                            autoComplete="off"
-                          />
-                        </label>
-                        <label>
-                          <span>സ്ഥിരീകരിച്ച ഡോസ് അതേപടി രേഖപ്പെടുത്തുക</span>
-                          <input
-                            type="text"
-                            value={draft.dose}
-                            onChange={(event) => updateScheduleDraft(index, { dose: event.target.value })}
-                            placeholder="സ്ഥിരീകരിച്ച ഡോസ് മാത്രം രേഖപ്പെടുത്തുക"
-                            autoComplete="off"
-                          />
+                          <span>ഡോസ് (കുറിപ്പടിയിൽ ഉള്ളതുപോലെ)</span>
+                          <input type="text" value={draft.dose} onChange={(event) => updateScheduleDraft(index, { dose: event.target.value })} placeholder="കുറിപ്പടിയിലെ ഡോസ് സ്ഥിരീകരിക്കുക" autoComplete="off" />
                         </label>
                         <p className="cl-routine-source-food">
                           <strong>ഭക്ഷണ നിർദ്ദേശം:</strong>{" "}
