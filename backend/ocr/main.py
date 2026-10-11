@@ -28,7 +28,12 @@ app.add_middleware(
 ML_API_URL = os.getenv("CARELEKHA_ML_API_URL", "http://127.0.0.1:8001")
 SAFETY_API_URL = os.getenv("CARELEKHA_SAFETY_API_URL", "http://127.0.0.1:8002")
 
-MODEL = "gemini-3.5-flash"
+# Try the current stable Flash model first, then automatically fall back if it is overloaded.
+MODEL_FALLBACKS = (
+    "gemini-3.8-flash",
+    "gemini-3.6-flash",
+    "gemini-3.5-flash-lite",
+)
 
 
 class Medicine(BaseModel):
@@ -101,29 +106,61 @@ async def extract_prescription(file: UploadFile = File(...)):
     """
 
     try:
-        chat = client.chats.create(
-            model=MODEL,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_schema=PrescriptionResult
-            )
-        )
+        result = None
+        model_failures = []
 
-        response = chat.send_message([
-            prompt,
-            types.Part.from_bytes(
-                data=image_bytes,
-                mime_type=file.content_type
-            )
-        ])
+        # Fail over immediately between supported models; don't make the caregiver
+        # manually change model IDs when one model is temporarily overloaded.
+        for model_name in MODEL_FALLBACKS:
+            try:
+                chat = client.chats.create(
+                    model=model_name,
+                    config=types.GenerateContentConfig(
+                        response_mime_type="application/json",
+                        response_schema=PrescriptionResult,
+                    ),
+                )
 
-        if not response.text:
+                response = chat.send_message([
+                    prompt,
+                    types.Part.from_bytes(
+                        data=image_bytes,
+                        mime_type=file.content_type,
+                    ),
+                ])
+
+                if not response.text:
+                    raise ValueError("The model returned an empty response.")
+
+                result = PrescriptionResult.model_validate_json(response.text)
+                print(f"CareLekha OCR succeeded with {model_name}.")
+                break
+
+            except Exception as model_error:
+                model_failures.append((model_name, model_error))
+                # Avoid logging raw provider responses or secrets.
+                print(
+                    f"CareLekha OCR model {model_name} failed: "
+                    f"{type(model_error).__name__}"
+                )
+
+        if result is None:
+            error_text = " ".join(str(err).lower() for _, err in model_failures)
+            overloaded = any(
+                marker in error_text
+                for marker in ("503", "unavailable", "high demand", "overload", "deadline")
+            )
+
+            if overloaded:
+                raise HTTPException(
+                    status_code=503,
+                    detail="ഇപ്പോൾ AI സേവനത്തിൽ തിരക്ക് കൂടുതലാണ്. മറ്റൊരു മോഡലും ശ്രമിച്ചു, പക്ഷേ ലഭ്യമായില്ല. കുറച്ച് കഴിഞ്ഞ് വീണ്ടും ശ്രമിക്കുക.",
+                )
+
             raise HTTPException(
                 status_code=502,
-                detail="The AI returned an empty response."
+                detail="കുറിപ്പടി വായിക്കാനായില്ല. ചിത്രം വ്യക്തമായതാണെന്ന് ഉറപ്പാക്കി വീണ്ടും ശ്രമിക്കുക.",
             )
-
-        result = PrescriptionResult.model_validate_json(response.text)
         for medicine in result.medicines:
             flag_missing_identity_fields(medicine)
         return result
@@ -132,17 +169,11 @@ async def extract_prescription(file: UploadFile = File(...)):
         raise
 
     except Exception as e:
-        import traceback
-
-        print("\n========== CARELEKHA ERROR ==========")
-        traceback.print_exc()
-        print("Error type:", type(e).__name__)
-        print("Error message:", str(e))
-        print("=====================================\n")
-
+        # Keep provider internals and raw exception text out of the caregiver-facing UI.
+        print(f"CareLekha prescription processing failed: {type(e).__name__}")
         raise HTTPException(
             status_code=502,
-            detail=f"Prescription processing failed: {type(e).__name__}: {str(e)[:200]}"
+            detail="കുറിപ്പടി പ്രോസസ്സ് ചെയ്യാനായില്ല. ചിത്രം പരിശോധിച്ച് വീണ്ടും ശ്രമിക്കുക.",
         ) from e
 
 
