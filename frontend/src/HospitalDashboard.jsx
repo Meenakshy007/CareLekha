@@ -141,6 +141,8 @@ function HospitalDashboard({
     useState(false);
 
   const [uploadedFile, setUploadedFile] = useState(null);
+  const [uploadError, setUploadError] = useState("");
+  const [uploadNotice, setUploadNotice] = useState("");
 
   const [mobileMenuOpen, setMobileMenuOpen] =
     useState(false);
@@ -168,10 +170,31 @@ function HospitalDashboard({
 
   const handleUpload = (event) => {
     const file = event.target.files?.[0];
+    setUploadError("");
+    setUploadNotice("");
 
-    if (file) {
-      setUploadedFile(file);
+    if (!file) {
+      setUploadedFile(null);
+      return;
     }
+
+    const allowedTypes = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
+    const allowedExtensions = /\\.(pdf|jpe?g|png|webp)$/i;
+    if (!allowedTypes.includes(file.type) && !allowedExtensions.test(file.name)) {
+      setUploadedFile(null);
+      setUploadError("Please choose a PDF, JPG, PNG, or WebP file.");
+      event.target.value = "";
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      setUploadedFile(null);
+      setUploadError("The file is too large. Please choose a file smaller than 10 MB.");
+      event.target.value = "";
+      return;
+    }
+
+    setUploadedFile(file);
   };
 
   const handlePrint = () => {
@@ -180,20 +203,16 @@ function HospitalDashboard({
 
   const handleUploadSubmit = (event) => {
     event.preventDefault();
+    setUploadError("");
+    setUploadNotice("");
 
     if (!uploadedFile) {
-      alert("Please select a prescription or hospital document.");
+      setUploadError("Please choose a prescription or hospital document first.");
       return;
     }
 
-    alert(
-      `Selected file: ${uploadedFile.name}\n\n` +
-      "The upload interface is ready. Connect your backend to " +
-      "save the document and process it for Malayalam translation."
-    );
-
-    setShowUploadModal(false);
-    setUploadedFile(null);
+    // This confirms local selection only; server upload and OCR come next.
+    setUploadNotice(`${uploadedFile.name} is selected and ready for the next step. The file has not been sent to a server yet.`);
   };
 
   const pageDescriptions = {
@@ -1212,8 +1231,13 @@ function HospitalDashboard({
                 </strong>
 
                 <span>
-                  PDF, JPG, PNG or other supported document formats
+                  PDF, JPG, PNG or WebP · Maximum file size 10 MB
                 </span>
+                {uploadedFile && (
+                  <small aria-live="polite">
+                    {(uploadedFile.size / (1024 * 1024)).toFixed(2)} MB selected
+                  </small>
+                )}
 
                 <input
                   type="file"
@@ -1224,19 +1248,22 @@ function HospitalDashboard({
 
               </label>
 
+              {uploadError && (
+                <p className="upload-feedback upload-feedback-error" role="alert">{uploadError}</p>
+              )}
+              {uploadNotice && (
+                <p className="upload-feedback upload-feedback-success" role="status" aria-live="polite">{uploadNotice}</p>
+              )}
               <div className="upload-review-note">
                 <AlertCircle size={17} />
-
-                Uploading a file here only selects it in the interface.
-                Backend storage, text extraction and AI translation
-                must be connected separately.
+                For privacy, use a test document for now. Server upload, secure storage, text extraction and translation are not connected yet.
               </div>
 
               <button
                 type="submit"
                 className="primary-dashboard-button upload-submit-button"
               >
-                Continue
+                {uploadNotice ? "File selected" : "Continue"}
                 <ArrowRight size={18} />
               </button>
 
