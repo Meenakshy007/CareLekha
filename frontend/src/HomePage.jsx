@@ -761,6 +761,109 @@ export default function HomePage({
   }
 
 
+  function getCompleteRoutineData() {
+    const medicines = reviewResult?.medicines || [];
+    const readyCount = medicines.filter((_, index) =>
+      scheduleResults[index]?.status === "ready_for_display" &&
+      Array.isArray(scheduleResults[index]?.schedule)
+    ).length;
+
+    const items = medicines.flatMap((entry, index) => {
+      const result = scheduleResults[index];
+      if (result?.status !== "ready_for_display" || !Array.isArray(result.schedule)) return [];
+      const medicine = entry.extracted_medicine || {};
+      return result.schedule.map((item) => ({
+        ...item,
+        sourceIndex: index,
+        sourceNotation: getOneZeroOnePlan(medicine)?.notation || "",
+      }));
+    });
+
+    const slotMeta = [
+      { slot: "morning", label: "രാവിലെ" },
+      { slot: "afternoon", label: "ഉച്ചയ്ക്ക്" },
+      { slot: "evening", label: "വൈകുന്നേരം" },
+      { slot: "night", label: "രാത്രി" },
+    ];
+
+    return {
+      medicineCount: medicines.length,
+      readyCount,
+      allReady: medicines.length > 0 && readyCount === medicines.length,
+      items,
+      groups: slotMeta.map((slot) => ({
+        ...slot,
+        items: items.filter((item) => item.time === slot.slot),
+      })),
+      noonIsNilForAll: medicines.length > 0 && medicines.every((entry) => {
+        const plan = getOneZeroOnePlan(entry.extracted_medicine || {});
+        return Boolean(plan && plan.afternoon === 0);
+      }),
+    };
+  }
+
+  async function saveWhatsAppReminders() {
+    setWhatsappStatus("");
+    const routine = getCompleteRoutineData();
+
+    if (!routine.allReady) {
+      setWhatsappStatus("എല്ലാ മരുന്നുകളുടെയും ദിനചര്യ തയ്യാറാക്കിയ ശേഷം മാത്രം അറിയിപ്പുകൾ സജ്ജമാക്കാം.");
+      return;
+    }
+    if (!whatsappPhone.trim()) {
+      setWhatsappStatus("WhatsApp നമ്പർ രാജ്യകോഡോടെ നൽകുക. ഉദാഹരണം: +919876543210");
+      return;
+    }
+    if (!whatsappConsent) {
+      setWhatsappStatus("ഈ നമ്പറിന്റെ ഉടമ WhatsApp ഓർമ്മപ്പെടുത്തലുകൾക്ക് അനുമതി നൽകിയതായി സ്ഥിരീകരിക്കുക.");
+      return;
+    }
+
+    const activeGroups = routine.groups.filter((group) => group.items.length > 0);
+    if (!activeGroups.length || activeGroups.some((group) => !whatsappTimes[group.slot])) {
+      setWhatsappStatus("ഓരോ മരുന്ന് സമയവിഭാഗത്തിനും WhatsApp അയക്കേണ്ട കൃത്യമായ സമയം തിരഞ്ഞെടുക്കുക.");
+      return;
+    }
+
+    setWhatsappSaving(true);
+    try {
+      const response = await fetch(`${SAFETY_API_BASE_URL}/reminders/whatsapp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recipient_phone: whatsappPhone.trim(),
+          timezone: "Asia/Kolkata",
+          consent: true,
+          reminders: activeGroups.map((group) => ({
+            slot: group.slot,
+            send_time: whatsappTimes[group.slot],
+            medicines: group.items.map((item) => ({
+              medicine_name: item.medicine_name,
+              strength: item.strength,
+              dose: item.dose,
+            })),
+          })),
+        }),
+      });
+
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.detail || "WhatsApp ഓർമ്മപ്പെടുത്തലുകൾ സജ്ജമാക്കാനായില്ല.");
+      }
+      setWhatsappStatus(
+        `${payload.reminders_created || activeGroups.length} സമയങ്ങളിലേക്കുള്ള WhatsApp ഓർമ്മപ്പെടുത്തലുകൾ സജ്ജമാക്കി. അയയ്ക്കൽ സമയം: ${activeGroups.map((group) => `${group.label} ${whatsappTimes[group.slot]}`).join(", ")}.`
+      );
+    } catch (error) {
+      setWhatsappStatus(
+        error instanceof TypeError
+          ? "Safety API-യുമായി ബന്ധപ്പെടാനായില്ല. സുരക്ഷാ സേവനം പ്രവർത്തിക്കുന്നുണ്ടോയെന്ന് പരിശോധിക്കുക."
+          : (error instanceof Error && error.message ? error.message : "WhatsApp ഓർമ്മപ്പെടുത്തലുകൾ സജ്ജമാക്കാനായില്ല.")
+      );
+    } finally {
+      setWhatsappSaving(false);
+    }
+  }
+
   /*
     Handle workflow navigation.
   */
@@ -799,9 +902,9 @@ export default function HomePage({
       return;
     }
 
-    if (index === 3) {
+    if (index === 3 || index === 4) {
       if (!reviewResult || !Array.isArray(reviewResult.medicines) || reviewResult.medicines.length === 0) {
-        setMessage("ദൈനംദിന ക്രമം തയ്യാറാക്കാൻ ആദ്യം കുറിപ്പടി വിശകലനം ചെയ്യുക.");
+        setMessage("ആദ്യം കുറിപ്പടി വിശകലനം ചെയ്യുക.");
         return;
       }
       if (reviewResult.medicines.some((_, medicineIndex) => !reviewConfirmed[medicineIndex])) {
@@ -810,17 +913,7 @@ export default function HomePage({
         return;
       }
 
-      setActiveStep(3);
-      return;
-    }
-
-    if (index === 4) {
-      if (!reviewResult || !Array.isArray(reviewResult.medicines) || reviewResult.medicines.length === 0) {
-        setMessage("ആദ്യം കുറിപ്പടി വിശകലനം ചെയ്ത് മരുന്ന് വിവരങ്ങൾ പരിശോധിക്കുക.");
-        return;
-      }
-
-      setActiveStep(4);
+      setActiveStep(index);
       return;
     }
 
