@@ -36,17 +36,17 @@ const API_BASE_URL = import.meta.env.VITE_CARELEKHA_API_URL || "http://127.0.0.1
 const steps = [
   {
     label: "1. രോഗിയുടെ വിവരങ്ങൾ",
-    subtitle: "(Patient Details)",
+    subtitle: "രോഗിയുടെ വിവരങ്ങൾ നൽകുക",
     icon: UserRound,
   },
   {
     label: "2. കുറിപ്പടി നൽകുക",
-    subtitle: "(Upload Prescription)",
+    subtitle: "ഡോക്ടറുടെ കുറിപ്പടി നൽകുക",
     icon: FileText,
   },
   {
     label: "3. വിവരങ്ങൾ പരിശോധിക്കുക",
-    subtitle: "(Verify Information)",
+    subtitle: "കുറിപ്പടി പരിശോധിക്കുക",
     icon: ShieldCheck,
   },
   {
@@ -61,10 +61,54 @@ const steps = [
   },
   {
     label: "6. പ്രിന്റ് ചാർട്ട്",
-    subtitle: "(Wall Chart)",
+    subtitle: "അച്ചടിക്കാനുള്ള മരുന്ന് പട്ടിക",
     icon: Printer,
   },
 ];
+
+/*
+  Translate only a small set of unambiguous common phrases for speech.
+  Drug names, strengths and dose notation remain exactly as extracted.
+*/
+function valueForMalayalamSpeech(label, rawValue) {
+  const original = String(rawValue ?? "").trim();
+  const normalized = original.toLowerCase().replace(/[.!]+$/g, "").trim();
+  const phraseMap = {
+    "ആവൃത്തി": {
+      "once daily": "ദിവസത്തിൽ ഒരിക്കൽ",
+      "once a day": "ദിവസത്തിൽ ഒരിക്കൽ",
+      "twice daily": "ദിവസത്തിൽ രണ്ട് തവണ",
+      "twice a day": "ദിവസത്തിൽ രണ്ട് തവണ",
+      "three times daily": "ദിവസത്തിൽ മൂന്ന് തവണ",
+      "three times a day": "ദിവസത്തിൽ മൂന്ന് തവണ",
+      "thrice daily": "ദിവസത്തിൽ മൂന്ന് തവണ",
+      "four times daily": "ദിവസത്തിൽ നാല് തവണ",
+      "four times a day": "ദിവസത്തിൽ നാല് തവണ",
+    },
+    "ഭക്ഷണ നിർദ്ദേശം": {
+      "after meals": "ഭക്ഷണത്തിന് ശേഷം",
+      "after meal": "ഭക്ഷണത്തിന് ശേഷം",
+      "after food": "ഭക്ഷണത്തിന് ശേഷം",
+      "before meals": "ഭക്ഷണത്തിന് മുമ്പ്",
+      "before meal": "ഭക്ഷണത്തിന് മുമ്പ്",
+      "before food": "ഭക്ഷണത്തിന് മുമ്പ്",
+      "with food": "ഭക്ഷണത്തോടൊപ്പം",
+      "with meals": "ഭക്ഷണത്തോടൊപ്പം",
+      "empty stomach": "വെറും വയറ്റിൽ",
+    },
+  };
+
+  if (phraseMap[label]?.[normalized]) return phraseMap[label][normalized];
+
+  if (label === "ചികിത്സാ കാലയളവ്") {
+    const match = normalized.match(/^(\d+)\s+days?$/);
+    if (match) return `${match[1]} ദിവസം`;
+    const weekMatch = normalized.match(/^(\d+)\s+weeks?$/);
+    if (weekMatch) return `${weekMatch[1]} ആഴ്ച`;
+  }
+
+  return original;
+}
 
 /*
   Read patient details safely from localStorage.
@@ -157,6 +201,24 @@ export default function HomePage({
 
   const conversionTimer = useRef(null);
   const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    const sectionByStep = {
+      2: "review-results",
+      3: "daily-routine",
+      4: "audio-guide",
+    };
+    const sectionId = sectionByStep[activeStep];
+    if (!sectionId || !reviewResult) return undefined;
+
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById(sectionId)?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [activeStep, reviewResult]);
 
   /*
     Automatically convert Manglish to Malayalam
@@ -413,28 +475,60 @@ export default function HomePage({
   */
   function speakMedicineAudio(medicine, index) {
     if (!reviewConfirmed[index]) {
-      setAudioStatus("ആദ്യം ഈ മരുന്നിന്റെ വിവരങ്ങൾ യഥാർത്ഥ കുറിപ്പടിയുമായി താരതമ്യം ചെയ്യുക.");
+      setAudioStatus("ആദ്യം മൂന്നാം ഘട്ടത്തിൽ കുറിപ്പടിയിലെ വിവരങ്ങൾ പരിശോധിക്കുക.");
       return;
     }
 
     if (!("speechSynthesis" in window) || !("SpeechSynthesisUtterance" in window)) {
-      setAudioStatus("ഈ ബ്രൗസറിൽ ശബ്ദം പ്ലേ ചെയ്യാൻ കഴിയുന്നില്ല. മറ്റൊരു പുതുക്കിയ ബ്രൗസർ പരീക്ഷിക്കുക.");
+      setAudioStatus("ഈ ഉപകരണത്തിൽ ശബ്ദം പ്ലേ ചെയ്യാൻ കഴിയുന്നില്ല.");
       return;
     }
 
-    const fields = [
-      ["മരുന്നിന്റെ പേര്", medicine.medicine_name],
-      ["ശക്തി", medicine.strength],
-      ["കുറിപ്പടിയിലെ ഡോസ് രേഖ", medicine.original_dosage_notation || medicine.prescribed_dose],
-      ["ആവൃത്തി", medicine.frequency],
-      ["ഭക്ഷണ നിർദ്ദേശം", medicine.food_instruction],
-      ["ചികിത്സാ കാലയളവ്", medicine.duration],
-    ].filter(([, value]) => value !== null && value !== undefined && String(value).trim() !== "");
+    const routineResult = scheduleResults[index];
+    const schedule = routineResult?.status === "ready_for_display" && Array.isArray(routineResult.schedule)
+      ? routineResult.schedule
+      : [];
+    const timeLabels = {
+      morning: "രാവിലെ",
+      afternoon: "ഉച്ചയ്ക്ക്",
+      evening: "വൈകുന്നേരം",
+      night: "രാത്രി",
+    };
 
+    let fields;
+    let intro;
+    if (schedule.length) {
+      const first = schedule[0];
+      const confirmedTimes = schedule
+        .map((item) => timeLabels[item.time] || "")
+        .filter(Boolean)
+        .join(", ");
+      fields = [
+        ["മരുന്നിന്റെ പേര്", first.medicine_name],
+        ["ശക്തി", first.strength],
+        ["ഡോസ്", first.dose],
+        ["സ്ഥിരീകരിച്ച സമയം", confirmedTimes],
+        ["ഭക്ഷണ നിർദ്ദേശം", first.instruction],
+        ["ചികിത്സാ കാലയളവ്", medicine.duration],
+      ];
+      intro = "ശ്രദ്ധിക്കുക. ഇത് നിങ്ങൾ പരിശോധിച്ച് സ്ഥിരീകരിച്ച ദൈനംദിന ക്രമമാണ്. ചികിത്സാ നിർദ്ദേശത്തിന് പകരമല്ല.";
+    } else {
+      fields = [
+        ["മരുന്നിന്റെ പേര്", medicine.medicine_name],
+        ["ശക്തി", medicine.strength],
+        ["കുറിപ്പടിയിലെ ഡോസ് രേഖ", medicine.original_dosage_notation || medicine.prescribed_dose],
+        ["ആവൃത്തി", medicine.frequency],
+        ["ഭക്ഷണ നിർദ്ദേശം", medicine.food_instruction],
+        ["ചികിത്സാ കാലയളവ്", medicine.duration],
+      ];
+      intro = "ശ്രദ്ധിക്കുക. ദൈനംദിന സമയക്രമം തയ്യാറാക്കിയിട്ടില്ല. നിങ്ങൾ പരിശോധിച്ച കുറിപ്പടി വിവരങ്ങൾ മാത്രമാണ് വായിക്കുന്നത്. സമയം ഊഹിച്ചിട്ടില്ല.";
+    }
+
+    fields = fields.filter(([, value]) => value !== null && value !== undefined && String(value).trim() !== "");
     const spokenText = [
-      "ശ്രദ്ധിക്കുക. ഇത് കുറിപ്പടിയിൽ നിന്ന് വായിച്ചെടുത്ത വിവരങ്ങളാണ്. ഇത് ഡോക്ടറുടെ ചികിത്സാ അനുമതിയല്ല.",
-      ...fields.map(([label, value]) => `${label}: ${value}.`),
-      "വ്യക്തമല്ലാത്ത വിവരങ്ങൾ ഊഹിച്ചിട്ടില്ല. മരുന്നിന്റെ ഉപയോഗത്തെക്കുറിച്ച് സംശയമുണ്ടെങ്കിൽ ഡോക്ടറെയോ ഫാർമസിസ്റ്റിനെയോ സമീപിക്കുക."
+      intro,
+      ...fields.map(([label, value]) => `${label}: ${valueForMalayalamSpeech(label, value)}.`),
+      "ഡോസ് അല്ലെങ്കിൽ സമയം സംബന്ധിച്ച് സംശയമുണ്ടെങ്കിൽ ഡോക്ടറെയോ ഫാർമസിസ്റ്റിനെയോ സമീപിക്കുക."
     ].join(" ");
 
     window.speechSynthesis.cancel();
@@ -455,9 +549,7 @@ export default function HomePage({
           : "ഉപകരണത്തിൽ മലയാളം ശബ്ദം ലഭ്യമല്ലായിരിക്കാം. ശബ്ദ ക്രമീകരണങ്ങളിൽ മലയാളം ശബ്ദ പിന്തുണ പരിശോധിക്കുക."
       );
     };
-    utterance.onend = () => {
-      setSpeakingMedicineIndex(null);
-    };
+    utterance.onend = () => setSpeakingMedicineIndex(null);
     utterance.onerror = () => {
       setSpeakingMedicineIndex(null);
       setAudioStatus("ശബ്ദം പ്ലേ ചെയ്യാനായില്ല. ഉപകരണത്തിൽ മലയാളം ശബ്ദ പിന്തുണയുണ്ടോയെന്ന് പരിശോധിക്കുക.");
@@ -481,28 +573,21 @@ export default function HomePage({
     return scheduleDrafts[index] || {
       medicine_name: medicine?.medicine_name || "",
       strength: medicine?.strength || "",
-      dose: "",
+      dose: medicine?.prescribed_dose || medicine?.original_dosage_notation || "",
       confirmed_times: [],
-      food_instruction: "",
-      instructions_confirmed: false,
     };
   }
 
   function updateScheduleDraft(index, patch) {
-    const changesConfirmation = !Object.prototype.hasOwnProperty.call(patch, "instructions_confirmed");
     setScheduleDrafts((previous) => {
       const medicine = reviewResult?.medicines?.[index]?.extracted_medicine;
       const current = previous[index] || {
         medicine_name: medicine?.medicine_name || "",
         strength: medicine?.strength || "",
-        dose: "",
+        dose: medicine?.prescribed_dose || medicine?.original_dosage_notation || "",
         confirmed_times: [],
-        food_instruction: "",
-        instructions_confirmed: false,
       };
-      const updated = { ...current, ...patch };
-      if (changesConfirmation) updated.instructions_confirmed = false;
-      return { ...previous, [index]: updated };
+      return { ...previous, [index]: { ...current, ...patch } };
     });
     setScheduleResults((previous) => {
       const next = { ...previous };
@@ -541,14 +626,6 @@ export default function HomePage({
       return;
     }
 
-    if (!draft.instructions_confirmed) {
-      setScheduleErrors((previous) => ({
-        ...previous,
-        [index]: "ഡോസും തിരഞ്ഞെടുത്ത ഓരോ സമയവും കുറിപ്പടിയിലോ ആരോഗ്യപ്രവർത്തകൻ സ്ഥിരീകരിച്ച നിർദ്ദേശങ്ങളിലോ ഉള്ളതുപോലെയാണെന്ന് ഉറപ്പാക്കുക.",
-      }));
-      return;
-    }
-
     setScheduleLoading((previous) => ({ ...previous, [index]: true }));
     try {
       const response = await fetch(`${API_BASE_URL}/schedule`, {
@@ -560,7 +637,7 @@ export default function HomePage({
           dose: draft.dose.trim(),
           confirmed_times: draft.confirmed_times,
           instructions_confirmed: true,
-          confirmed_food_instruction: draft.food_instruction.trim() || null,
+          confirmed_food_instruction: medicine.food_instruction || null,
         }),
       });
       const payload = await response.json().catch(() => ({}));
@@ -623,22 +700,21 @@ export default function HomePage({
       }
 
       setActiveStep(2);
-      document
-        .getElementById("review-results")
-        ?.scrollIntoView({ behavior: "smooth", block: "start" });
       return;
     }
 
     if (index === 3) {
       if (!reviewResult || !Array.isArray(reviewResult.medicines) || reviewResult.medicines.length === 0) {
-        setMessage("ദൈനംദിന ക്രമം തയ്യാറാക്കാൻ ആദ്യം വായിക്കാവുന്ന മരുന്ന് വിവരങ്ങളുള്ള കുറിപ്പടി വിശകലനം ചെയ്യുക.");
+        setMessage("ദൈനംദിന ക്രമം തയ്യാറാക്കാൻ ആദ്യം കുറിപ്പടി വിശകലനം ചെയ്യുക.");
+        return;
+      }
+      if (reviewResult.medicines.some((_, medicineIndex) => !reviewConfirmed[medicineIndex])) {
+        setMessage("തുടരുന്നതിന് മുമ്പ് മൂന്നാം ഘട്ടത്തിൽ ഓരോ മരുന്നിന്റെയും വിവരങ്ങൾ പരിശോധിക്കുക.");
+        setActiveStep(2);
         return;
       }
 
       setActiveStep(3);
-      document
-        .getElementById("daily-routine")
-        ?.scrollIntoView({ behavior: "smooth", block: "start" });
       return;
     }
 
@@ -649,9 +725,6 @@ export default function HomePage({
       }
 
       setActiveStep(4);
-      document
-        .getElementById("audio-guide")
-        ?.scrollIntoView({ behavior: "smooth", block: "start" });
       return;
     }
 
@@ -1112,15 +1185,15 @@ export default function HomePage({
             </div>
           )}
 
-          {reviewResult && (
+          {reviewResult && activeStep === 2 && (
             <section className="cl-review-results" id="review-results" aria-live="polite">
               <div className="cl-review-heading">
                 <div>
-                  <span className="cl-review-eyebrow">REVIEW REQUIRED</span>
-                  <h2>Prescription analysis results</h2>
-                  <p>Compare each extracted field with the original prescription. Text similarity is not clinical verification.</p>
+                  <span className="cl-review-eyebrow">പരിശോധന ആവശ്യമാണ്</span>
+                  <h2>കുറിപ്പടി വിശകലന ഫലം</h2>
+                  <p>ഓരോ വിവരവും യഥാർത്ഥ കുറിപ്പടിയുമായി താരതമ്യം ചെയ്യുക. പട്ടികയിലെ സാമ്യം മാത്രം മരുന്ന് ശരിയാണെന്നതിന് തെളിവല്ല.</p>
                 </div>
-                <span className="cl-review-status">Human review required</span>
+                <span className="cl-review-status">നിങ്ങളുടെ പരിശോധന ആവശ്യമാണ്</span>
               </div>
               {Array.isArray(reviewResult.medicines) && reviewResult.medicines.length > 0 ? (
                 <div className="cl-review-list">
@@ -1132,20 +1205,20 @@ export default function HomePage({
                       <article className="cl-review-medicine" key={`${medicine.medicine_name || "medicine"}-${index}`}>
                         <div className="cl-review-medicine-top">
                           <div>
-                            <span className="cl-review-index">MEDICINE {index + 1}</span>
-                            <h3>{medicine.medicine_name || "Name not readable"}</h3>
+                            <span className="cl-review-index">മരുന്ന് {index + 1}</span>
+                            <h3>{medicine.medicine_name || "പേര് വായിക്കാനായില്ല"}</h3>
                           </div>
-                          <span className="cl-review-pill">Needs review</span>
+                          <span className="cl-review-pill">പരിശോധന ആവശ്യമാണ്</span>
                         </div>
                         <dl className="cl-review-fields">
-                          <div><dt>Strength</dt><dd>{medicine.strength || "Not extracted"}</dd></div>
-                          <div><dt>Original dose notation</dt><dd>{medicine.original_dosage_notation || medicine.prescribed_dose || "Not extracted"}</dd></div>
-                          <div><dt>Frequency (OCR)</dt><dd>{medicine.frequency || "Not extracted"}</dd></div>
-                          <div><dt>Food instruction (OCR)</dt><dd>{medicine.food_instruction || "Not extracted"}</dd></div>
-                          <div><dt>Duration (OCR)</dt><dd>{medicine.duration || "Not extracted"}</dd></div>
-                          <div><dt>OCR uncertainty</dt><dd>{medicine.uncertainty || "Review required"}</dd></div>
+                          <div><dt>ശക്തി</dt><dd>{medicine.strength || "വായിക്കാനായില്ല"}</dd></div>
+                          <div><dt>കുറിപ്പടിയിലെ ഡോസ് രേഖ</dt><dd>{medicine.original_dosage_notation || medicine.prescribed_dose || "വായിക്കാനായില്ല"}</dd></div>
+                          <div><dt>ആവൃത്തി</dt><dd>{medicine.frequency ? valueForMalayalamSpeech("ആവൃത്തി", medicine.frequency) : "വായിക്കാനായില്ല"}</dd></div>
+                          <div><dt>ഭക്ഷണ നിർദ്ദേശം</dt><dd>{medicine.food_instruction ? valueForMalayalamSpeech("ഭക്ഷണ നിർദ്ദേശം", medicine.food_instruction) : "വായിക്കാനായില്ല"}</dd></div>
+                          <div><dt>കാലയളവ്</dt><dd>{medicine.duration ? valueForMalayalamSpeech("ചികിത്സാ കാലയളവ്", medicine.duration) : "വായിക്കാനായില്ല"}</dd></div>
+                          <div><dt>വായനയിലെ വ്യക്തത</dt><dd>{medicine.uncertainty === "low" ? "കുറഞ്ഞ അനിശ്ചിതത്വം" : medicine.uncertainty === "none" ? "വ്യക്തമായ അനിശ്ചിതത്വം കണ്ടെത്തിയില്ല" : "പരിശോധന ആവശ്യമാണ്"}</dd></div>
                         </dl>
-                        <p className="cl-review-safety-message"><ShieldCheck size={16} />{identity.message || "This information has not been clinically verified."}</p>
+                        <p className="cl-review-safety-message"><ShieldCheck size={16} />{identity.status === "safety_service_unavailable" ? "സുരക്ഷാ സേവനം ലഭ്യമല്ല. ഈ മരുന്ന് സ്ഥിരീകരിച്ചിട്ടില്ല." : identity.status === "verified" ? "പരിശോധിച്ച രേഖയുമായി മരുന്നിന്റെ പേര് പൊരുത്തപ്പെട്ടു." : identity.status === "identity_match_unreviewed" ? "മരുന്നിന്റെ രേഖ കണ്ടെത്തി; എന്നാൽ വിദഗ്ധ പരിശോധന പൂർത്തിയായിട്ടില്ല." : identity.status === "awaiting_confirmation" ? "മരുന്നിന്റെ പേരും ശക്തിയും യഥാർത്ഥ കുറിപ്പടിയുമായി താരതമ്യം ചെയ്യുക." : "കൃത്യമായ പൊരുത്തം കണ്ടെത്തിയില്ല. ഫാർമസിസ്റ്റിന്റെ സഹായം തേടുക."}</p>
                         <div className="cl-verification-check">
                           <label>
                             <input
@@ -1167,10 +1240,7 @@ export default function HomePage({
                                   });
                                   setScheduleDrafts((previous) => ({
                                     ...previous,
-                                    [index]: {
-                                      ...getScheduleDraft(index, medicine),
-                                      instructions_confirmed: false,
-                                    },
+                                    [index]: getScheduleDraft(index, medicine),
                                   }));
                                 }
                                 setAudioStatus("");
@@ -1180,37 +1250,35 @@ export default function HomePage({
                           </label>
                           <small>ഈ പരിശോധന കുറിപ്പടിയിലെ വിവരങ്ങൾ ശരിയായി വായിച്ചിട്ടുണ്ടോ എന്നതിനുള്ളതാണ്; ചികിത്സയ്ക്ക് അംഗീകാരം നൽകുന്നതല്ല.</small>
                         </div>
-                        <div className="cl-candidates-heading">
-                          <strong>Possible catalogue matches</strong><span>{candidates.length} candidates</span>
-                        </div>
+                        <details className="cl-candidates-details">
+                          <summary>സമാന മരുന്ന് രേഖകൾ കാണുക ({candidates.length})</summary>
                         {candidates.length ? (
                           <div className="cl-candidate-list">
                             {candidates.map((candidate, ci) => (
                               <div className="cl-candidate" key={`${candidate.id || candidate.name}-${ci}`}>
                                 <div className="cl-candidate-title">
-                                  <strong>{candidate.name || "Unnamed item"}</strong>
-                                  <span>Similarity: {Number(candidate.similarity_score || 0).toFixed(3)}</span>
+                                  <strong>{candidate.name || "പേര് ലഭ്യമല്ല"}</strong>
+                                  <span>പാഠസാമ്യം: {Number(candidate.similarity_score || 0).toFixed(3)}</span>
                                 </div>
-                                <p>{[candidate.short_composition1, candidate.short_composition2, candidate.pack_size_label, candidate.is_discontinued ? "Marked discontinued in catalogue" : ""].filter(Boolean).join(" · ") || "Composition unavailable"}</p>
-                                <small>Suggestion only. Confirm medicine, strength and formulation against the original.</small>
+                                <p>{[candidate.short_composition1, candidate.short_composition2, candidate.pack_size_label, candidate.is_discontinued ? "പട്ടികയിൽ നിർത്തലാക്കിയതായി രേഖപ്പെടുത്തിയിരിക്കുന്നു" : ""].filter(Boolean).join(" · ") || "ഘടനാ വിവരം ലഭ്യമല്ല"}</p>
+                                <small>ഇത് ഒരു നിർദ്ദേശം മാത്രമാണ്. മരുന്നിന്റെ പേര്, ശക്തി, രൂപം എന്നിവ യഥാർത്ഥ കുറിപ്പടിയുമായി പരിശോധിക്കുക.</small>
                               </div>
                             ))}
                           </div>
-                        ) : <p className="cl-review-empty">No candidates returned. Do not guess; request professional review.</p>}
+                        ) : <p className="cl-review-empty">പൊരുത്തങ്ങൾ കണ്ടെത്തിയില്ല. ഊഹിക്കാതെ ഡോക്ടറുടെയോ ഫാർമസിസ്റ്റിന്റെയോ സഹായം തേടുക.</p>}
+                        </details>
                       </article>
                     );
                   })}
                 </div>
-              ) : <p className="cl-review-empty">No medicines were extracted. Check image quality and request professional review.</p>}
+              ) : <p className="cl-review-empty">മരുന്നുകൾ വായിച്ചെടുക്കാനായില്ല. ചിത്രം പരിശോധിച്ച് വീണ്ടും ശ്രമിക്കുക; ആവശ്യമെങ്കിൽ വിദഗ്ധ സഹായം തേടുക.</p>}
               {Array.isArray(reviewResult.medicines) && reviewResult.medicines.length > 0 && (
                 <div className="cl-workflow-next">
                   <button
                     type="button"
                     className="cl-routine-submit"
-                    onClick={() => {
-                      setActiveStep(3);
-                      document.getElementById("daily-routine")?.scrollIntoView({ behavior: "smooth", block: "start" });
-                    }}
+                    disabled={!reviewResult.medicines.every((_, medicineIndex) => Boolean(reviewConfirmed[medicineIndex]))}
+                    onClick={() => setActiveStep(3)}
                   >
                     അടുത്ത ഘട്ടം: ദൈനംദിന ക്രമം
                     <ChevronRight size={17} />
@@ -1220,17 +1288,12 @@ export default function HomePage({
             </section>
           )}
 
-          {reviewResult && Array.isArray(reviewResult.medicines) && reviewResult.medicines.length > 0 && (
+          {reviewResult && activeStep === 3 && Array.isArray(reviewResult.medicines) && reviewResult.medicines.length > 0 && (
             <section className="cl-daily-routine" id="daily-routine" aria-live="polite">
               <div className="cl-routine-heading">
                 <span className="cl-review-eyebrow">ഘട്ടം 4 · ദൈനംദിന ക്രമം</span>
                 <h2>ദൈനംദിന മരുന്ന് ക്രമം</h2>
-                <p>വ്യക്തമായി സ്ഥിരീകരിച്ച നിർദ്ദേശങ്ങൾ മാത്രം ഉപയോഗിച്ച് ക്രമം തയ്യാറാക്കുക. 1-0-1 പോലുള്ള കുറിപ്പുകളെ CareLekha സ്വയം സമയങ്ങളാക്കി മാറ്റില്ല.</p>
-              </div>
-
-              <div className="cl-routine-warning">
-                <ShieldCheck size={17} />
-                <span>രാവിലെ, ഉച്ചയ്ക്ക്, വൈകുന്നേരം, രാത്രി എന്നീ സമയങ്ങൾ കുറിപ്പടിയിലോ ആരോഗ്യപ്രവർത്തകന്റെ നിർദ്ദേശത്തിലോ വ്യക്തമായി സ്ഥിരീകരിച്ചിട്ടുണ്ടെങ്കിൽ മാത്രം തിരഞ്ഞെടുക്കുക. ഈ ക്രമം വിവരങ്ങൾ ക്രമീകരിക്കുക മാത്രമാണ് ചെയ്യുന്നത്; ഏത് മരുന്ന് എപ്പോൾ കഴിക്കണമെന്ന് തീരുമാനിക്കുന്നില്ല.</span>
+                <p>പകർത്തിയ ഡോസും തിരഞ്ഞെടുത്ത സമയവും യഥാർത്ഥ കുറിപ്പടിയുമായി പരിശോധിക്കുക.</p>
               </div>
 
               <div className="cl-routine-list">
@@ -1250,51 +1313,34 @@ export default function HomePage({
                       <div className="cl-routine-medicine-title">
                         <div>
                           <span className="cl-review-index">മരുന്ന് {index + 1}</span>
-                          <h3>{medicine.medicine_name || "Name not readable"}</h3>
+                          <h3>{medicine.medicine_name || "പേര് വായിക്കാനായില്ല"}</h3>
+                          <p className="cl-routine-medicine-meta">ശക്തി: {medicine.strength || "വായിക്കാനായില്ല"}</p>
                         </div>
-                        <span className="cl-review-pill">പരിശോധന ആവശ്യമാണ്</span>
+                        <span className="cl-review-pill">{reviewConfirmed[index] ? "വിവരങ്ങൾ പരിശോധിച്ചു" : "പരിശോധന ആവശ്യമാണ്"}</span>
                       </div>
 
+                      <details className="cl-routine-identity-details">
+                        <summary>മരുന്നിന്റെ പേരോ ശക്തിയോ തിരുത്തുക</summary>
+                        <div className="cl-routine-form-grid">
+                          <label>
+                            <span>മരുന്നിന്റെ പേര്</span>
+                            <input type="text" value={draft.medicine_name} onChange={(event) => updateScheduleDraft(index, { medicine_name: event.target.value })} autoComplete="off" />
+                          </label>
+                          <label>
+                            <span>ശക്തി</span>
+                            <input type="text" value={draft.strength} onChange={(event) => updateScheduleDraft(index, { strength: event.target.value })} placeholder="കുറിപ്പടിയിൽ ഉള്ളതുപോലെ, ഉദാ. 500 mg" autoComplete="off" />
+                          </label>
+                        </div>
+                      </details>
                       <div className="cl-routine-form-grid">
                         <label>
-                          <span>മരുന്നിന്റെ പേര് സ്ഥിരീകരിക്കുക</span>
-                          <input
-                            type="text"
-                            value={draft.medicine_name}
-                            onChange={(event) => updateScheduleDraft(index, { medicine_name: event.target.value })}
-                            autoComplete="off"
-                          />
+                          <span>ഡോസ് (കുറിപ്പടിയിൽ ഉള്ളതുപോലെ)</span>
+                          <input type="text" value={draft.dose} onChange={(event) => updateScheduleDraft(index, { dose: event.target.value })} placeholder="കുറിപ്പടിയിലെ ഡോസ് സ്ഥിരീകരിക്കുക" autoComplete="off" />
                         </label>
-                        <label>
-                          <span>ശക്തി സ്ഥിരീകരിക്കുക</span>
-                          <input
-                            type="text"
-                            value={draft.strength}
-                            onChange={(event) => updateScheduleDraft(index, { strength: event.target.value })}
-                            placeholder="കുറിപ്പടിയിൽ ഉള്ളതുപോലെ, ഉദാ. 500 mg"
-                            autoComplete="off"
-                          />
-                        </label>
-                        <label>
-                          <span>സ്ഥിരീകരിച്ച ഡോസ് അതേപടി രേഖപ്പെടുത്തുക</span>
-                          <input
-                            type="text"
-                            value={draft.dose}
-                            onChange={(event) => updateScheduleDraft(index, { dose: event.target.value })}
-                            placeholder="സ്ഥിരീകരിച്ച ഡോസ് മാത്രം രേഖപ്പെടുത്തുക"
-                            autoComplete="off"
-                          />
-                        </label>
-                        <label>
-                          <span>ഭക്ഷണവുമായി ബന്ധപ്പെട്ട നിർദ്ദേശം (ഐച്ഛികം)</span>
-                          <input
-                            type="text"
-                            value={draft.food_instruction}
-                            onChange={(event) => updateScheduleDraft(index, { food_instruction: event.target.value })}
-                            placeholder="വ്യക്തമായി സ്ഥിരീകരിച്ചിട്ടുണ്ടെങ്കിൽ മാത്രം"
-                            autoComplete="off"
-                          />
-                        </label>
+                        <p className="cl-routine-source-food">
+                          <strong>ഭക്ഷണ നിർദ്ദേശം:</strong>{" "}
+                          {medicine.food_instruction ? valueForMalayalamSpeech("ഭക്ഷണ നിർദ്ദേശം", medicine.food_instruction) : "വായിച്ചെടുക്കാനായില്ല; ഊഹിച്ചിട്ടില്ല."}
+                        </p>
                       </div>
 
                       <fieldset className="cl-routine-times">
@@ -1316,17 +1362,12 @@ export default function HomePage({
                             </label>
                           ))}
                         </div>
-                        <p>കുറിപ്പടിയിൽ 1-0-1 അല്ലെങ്കിൽ “ദിവസത്തിൽ രണ്ടുതവണ” എന്ന് കണ്ടതുകൊണ്ട് മാത്രം സമയം തിരഞ്ഞെടുക്കരുത്. യഥാർത്ഥ സമയം പ്രത്യേകം സ്ഥിരീകരിക്കുക.</p>
+                        <p>1-0-1 പോലുള്ള ഡോസ് രേഖകളിൽ നിന്ന് സമയം സ്വയം കണക്കാക്കില്ല.</p>
                       </fieldset>
 
-                      <label className="cl-routine-confirm">
-                        <input
-                          type="checkbox"
-                          checked={Boolean(draft.instructions_confirmed)}
-                          onChange={(event) => updateScheduleDraft(index, { instructions_confirmed: event.target.checked })}
-                        />
-                        <span>മരുന്നിന്റെ പേര്, ശക്തി, ഡോസ്, തിരഞ്ഞെടുത്ത സമയങ്ങൾ, ഭക്ഷണ നിർദ്ദേശം എന്നിവ യഥാർത്ഥ കുറിപ്പടിയിലോ യോഗ്യനായ ആരോഗ്യപ്രവർത്തകൻ സ്ഥിരീകരിച്ച നിർദ്ദേശങ്ങളിലോ ഉള്ളതുപോലെയാണെന്ന് ഞാൻ ഉറപ്പാക്കുന്നു. ഇത് വിവരങ്ങളുടെ സ്ഥിരീകരണമാണ്; ചികിത്സയ്ക്ക് അംഗീകാരമല്ല.</span>
-                      </label>
+                      <p className="cl-routine-confirm-note">
+                        വിവരങ്ങൾ ശരിയാണെങ്കിൽ മാത്രം സ്ഥിരീകരിച്ച് തുടരുക.
+                      </p>
 
                       <div className="cl-routine-actions">
                         <button
@@ -1336,7 +1377,7 @@ export default function HomePage({
                           disabled={Boolean(scheduleLoading[index])}
                         >
                           <CalendarDays size={16} />
-                          {scheduleLoading[index] ? "ക്രമം തയ്യാറാക്കുന്നു…" : "ദൈനംദിന ക്രമം തയ്യാറാക്കുക"}
+                          {scheduleLoading[index] ? "ക്രമം തയ്യാറാക്കുന്നു…" : "സ്ഥിരീകരിച്ച് ക്രമം തയ്യാറാക്കുക"}
                         </button>
                         {result?.status === "ready_for_display" && (
                           <span className="cl-routine-ready">സ്ഥിരീകരിച്ച വിവരങ്ങളിൽ നിന്ന് ക്രമം തയ്യാറാക്കി</span>
@@ -1366,10 +1407,7 @@ export default function HomePage({
                 <button
                   type="button"
                   className="cl-routine-submit"
-                  onClick={() => {
-                    setActiveStep(4);
-                    document.getElementById("audio-guide")?.scrollIntoView({ behavior: "smooth", block: "start" });
-                  }}
+                  onClick={() => setActiveStep(4)}
                 >
                   അടുത്ത ഘട്ടം: മലയാളം ശബ്ദസഹായി
                   <Volume2 size={17} />
@@ -1379,7 +1417,7 @@ export default function HomePage({
           )}
 
           {/* ഘട്ടം 5: മലയാളം ശബ്ദസഹായി */}
-          {reviewResult && Array.isArray(reviewResult.medicines) && reviewResult.medicines.length > 0 && (
+          {reviewResult && activeStep === 4 && Array.isArray(reviewResult.medicines) && reviewResult.medicines.length > 0 && (
             <section className="cl-audio-guide-section" id="audio-guide" aria-live="polite">
               <div className="cl-routine-heading">
                 <span className="cl-review-eyebrow">ഘട്ടം 5 · മലയാളം ശബ്ദസഹായി</span>
@@ -1395,26 +1433,48 @@ export default function HomePage({
               <div className="cl-routine-list">
                 {reviewResult.medicines.map((entry, index) => {
                   const medicine = entry.extracted_medicine || {};
+                  const routineResult = scheduleResults[index];
+                  const schedule = routineResult?.status === "ready_for_display" && Array.isArray(routineResult.schedule)
+                    ? routineResult.schedule
+                    : [];
+                  const first = schedule[0];
+                  const timeLabels = {
+                    morning: "രാവിലെ",
+                    afternoon: "ഉച്ചയ്ക്ക്",
+                    evening: "വൈകുന്നേരം",
+                    night: "രാത്രി",
+                  };
+                  const times = schedule.map((item) => timeLabels[item.time]).filter(Boolean).join(", ");
+
                   return (
                     <article className="cl-routine-medicine" key={`audio-${medicine.medicine_name || "medicine"}-${index}`}>
                       <div className="cl-routine-medicine-title">
                         <div>
                           <span className="cl-review-index">മരുന്ന് {index + 1}</span>
-                          <h3>{medicine.medicine_name || "പേര് വായിക്കാനായില്ല"}</h3>
+                          <h3>{first?.medicine_name || medicine.medicine_name || "പേര് വായിക്കാനായില്ല"}</h3>
                         </div>
-                        <span className="cl-review-pill">{reviewConfirmed[index] ? "വിവരങ്ങൾ പരിശോധിച്ചു" : "പരിശോധന ആവശ്യമാണ്"}</span>
+                        <span className="cl-review-pill">{schedule.length ? "ക്രമം തയ്യാറായി" : "ക്രമം തയ്യാറാക്കണം"}</span>
                       </div>
 
-                      <dl className="cl-review-fields">
-                        <div><dt>ശക്തി</dt><dd>{medicine.strength || "ലഭ്യമല്ല"}</dd></div>
-                        <div><dt>ഡോസ് രേഖ</dt><dd>{medicine.original_dosage_notation || medicine.prescribed_dose || "ലഭ്യമല്ല"}</dd></div>
-                        <div><dt>ആവൃത്തി</dt><dd>{medicine.frequency || "ലഭ്യമല്ല"}</dd></div>
-                        <div><dt>ഭക്ഷണ നിർദ്ദേശം</dt><dd>{medicine.food_instruction || "ലഭ്യമല്ല"}</dd></div>
-                        <div><dt>കാലയളവ്</dt><dd>{medicine.duration || "ലഭ്യമല്ല"}</dd></div>
-                      </dl>
-
-                      {!reviewConfirmed[index] && (
-                        <p className="cl-routine-error">ശബ്ദം കേൾക്കുന്നതിന് മുമ്പ് മൂന്നാം ഘട്ടത്തിൽ ഈ വിവരങ്ങൾ യഥാർത്ഥ കുറിപ്പടിയുമായി താരതമ്യം ചെയ്ത് പരിശോധിക്കുക.</p>
+                      {first ? (
+                        <dl className="cl-review-fields">
+                          <div><dt>ശക്തി</dt><dd>{first.strength}</dd></div>
+                          <div><dt>ഡോസ്</dt><dd>{first.dose}</dd></div>
+                          <div><dt>സ്ഥിരീകരിച്ച സമയം</dt><dd>{times}</dd></div>
+                          <div><dt>ഭക്ഷണ നിർദ്ദേശം</dt><dd>{first.instruction ? valueForMalayalamSpeech("ഭക്ഷണ നിർദ്ദേശം", first.instruction) : "വ്യക്തമായി രേഖപ്പെടുത്തിയിട്ടില്ല"}</dd></div>
+                          {medicine.duration && <div><dt>കാലയളവ്</dt><dd>{valueForMalayalamSpeech("ചികിത്സാ കാലയളവ്", medicine.duration)}</dd></div>}
+                        </dl>
+                      ) : (
+                        <>
+                          <dl className="cl-review-fields">
+                            <div><dt>ശക്തി</dt><dd>{medicine.strength || "വായിക്കാനായില്ല"}</dd></div>
+                            <div><dt>കുറിപ്പടിയിലെ ഡോസ് രേഖ</dt><dd>{medicine.original_dosage_notation || medicine.prescribed_dose || "വായിക്കാനായില്ല"}</dd></div>
+                            <div><dt>ആവൃത്തി</dt><dd>{medicine.frequency ? valueForMalayalamSpeech("ആവൃത്തി", medicine.frequency) : "വായിക്കാനായില്ല"}</dd></div>
+                            <div><dt>ഭക്ഷണ നിർദ്ദേശം</dt><dd>{medicine.food_instruction ? valueForMalayalamSpeech("ഭക്ഷണ നിർദ്ദേശം", medicine.food_instruction) : "വായിക്കാനായില്ല"}</dd></div>
+                            {medicine.duration && <div><dt>കാലയളവ്</dt><dd>{valueForMalayalamSpeech("ചികിത്സാ കാലയളവ്", medicine.duration)}</dd></div>}
+                          </dl>
+                          <p className="cl-routine-confirm-note">ദൈനംദിന സമയക്രമം തയ്യാറാക്കിയിട്ടില്ല; പരിശോധന ചെയ്ത കുറിപ്പടി വിവരങ്ങൾ മാത്രം കേൾക്കാം.</p>
+                        </>
                       )}
 
                       <div className="cl-audio-actions">
@@ -1425,7 +1485,7 @@ export default function HomePage({
                           disabled={!reviewConfirmed[index]}
                         >
                           <Volume2 size={16} />
-                          {speakingMedicineIndex === index ? "ശബ്ദം പ്ലേ ചെയ്യുന്നു…" : "മലയാളത്തിൽ കേൾക്കുക"}
+                          {speakingMedicineIndex === index ? "ശബ്ദം പ്ലേ ചെയ്യുന്നു…" : first ? "ദൈനംദിന ക്രമം കേൾക്കുക" : "കുറിപ്പടി വിവരങ്ങൾ കേൾക്കുക"}
                         </button>
                         {speakingMedicineIndex === index && (
                           <button
@@ -1448,7 +1508,7 @@ export default function HomePage({
                 <button
                   type="button"
                   className="cl-routine-submit"
-                  onClick={() => setMessage("ആറാം ഘട്ടമായ പ്രിന്റ് ചാർട്ട് പൂർണ്ണമായി ബന്ധിപ്പിച്ചിട്ടില്ല.")}
+                  onClick={() => setMessage("പ്രിന്റ് ചാർട്ട് സൗകര്യം ഉടൻ ലഭ്യമാകും.")}
                 >
                   അടുത്ത ഘട്ടം: പ്രിന്റ് ചാർട്ട്
                   <ChevronRight size={17} />
