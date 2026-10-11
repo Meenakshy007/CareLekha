@@ -1,9 +1,11 @@
+import base64
 import os
 from typing import Optional
 
 import httpx
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
 from google import genai
 from google.genai import types
@@ -50,6 +52,10 @@ class Medicine(BaseModel):
 class PrescriptionResult(BaseModel):
     medicines: list[Medicine]
     needs_human_review: bool = True
+
+
+class AudioGuideRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=5000)
 
 def flag_missing_identity_fields(medicine: Medicine) -> Medicine:
     """Flag incomplete identities for human review, not validate OCR correctness."""
@@ -177,6 +183,111 @@ async def extract_prescription(file: UploadFile = File(...)):
         ) from e
 
 
+
+
+@app.post("/audio-guide")
+async def generate_malayalam_audio(request: AudioGuideRequest):
+    """Generate actual Malayalam speech audio with Gemini TTS; never fall back to an English browser voice."""
+    payload = {
+        "model": "gemini-3.8-flash-tts",
+        "input": [{
+            "type": "user_input",
+            "content": [{
+                "type": "text",
+                "text": request.text,
+                "annotations": [{
+                    "type": "speech_metadata",
+                    "style": (
+                        "Speak naturally in Malayalam (ml-IN), with a clear, warm, "
+                        "measured pace suitable for older adults. Keep medicine names, "
+                        "strengths, numbers and dosage notation faithful to the supplied text."
+                    ),
+                }],
+            }],
+        }],
+        "response_format": {"type": "audio"},
+        "generation_config": {
+            "speech_config": [{"voice": "Kore"}],
+        },
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=90.0) as http:
+            response = await http.post(
+                "https://generativelanguage.googleapis.com/v1beta/interactions",
+                headers={"x-goog-api-key": api_key},
+                json=payload,
+            )
+
+        if response.status_code == 503:
+            raise HTTPException(
+                status_code=503,
+                detail="മലയാളം ശബ്ദ സേവനം ഇപ്പോൾ ലഭ്യമല്ല. കുറച്ച് കഴിഞ്ഞ് വീണ്ടും ശ്രമിക്കുക.",
+            )
+
+        response.raise_for_status()
+        result = response.json()
+        audio_data = None
+        audio_mime = "audio/wav"
+
+        # REST responses expose generated audio in steps[].content[].data.
+        for step in reversed(result.get("steps", [])):
+            if step.get("type") != "model_output":
+                continue
+            for block in reversed(step.get("content", [])):
+                if block.get("type") == "audio" and block.get("data"):
+                    audio_data = block["data"]
+                    audio_mime = block.get("mime_type") or "audio/wav"
+                    break
+            if audio_data:
+                break
+
+        # Accommodate SDK-like responses if the provider adds the convenience field.
+        if not audio_data:
+            output_audio = result.get("output_audio") or {}
+            audio_data = output_audio.get("data")
+            audio_mime = output_audio.get("mime_type") or audio_mime
+
+        if not audio_data:
+            raise HTTPException(
+                status_code=502,
+                detail="മലയാളം ശബ്ദം സൃഷ്ടിക്കാനായില്ല. വീണ്ടും ശ്രമിക്കുക.",
+            )
+
+        try:
+            audio_bytes = base64.b64decode(audio_data, validate=True)
+        except (ValueError, TypeError) as exc:
+            raise HTTPException(
+                status_code=502,
+                detail="ശബ്ദ ഫയൽ ലഭിച്ചതിൽ പിശകുണ്ടായി. വീണ്ടും ശ്രമിക്കുക.",
+            ) from exc
+
+        if not audio_bytes:
+            raise HTTPException(
+                status_code=502,
+                detail="ശബ്ദ ഫയൽ ശൂന്യമാണ്. വീണ്ടും ശ്രമിക്കുക.",
+            )
+
+        return Response(
+            content=audio_bytes,
+            media_type=audio_mime if audio_mime.startswith("audio/") else "audio/wav",
+            headers={"Cache-Control": "no-store"},
+        )
+
+    except HTTPException:
+        raise
+    except httpx.HTTPStatusError as exc:
+        print(f"CareLekha Malayalam TTS failed with HTTP {exc.response.status_code}.")
+        raise HTTPException(
+            status_code=502,
+            detail="മലയാളം ശബ്ദം സൃഷ്ടിക്കാനായില്ല. API കീയും ശബ്ദ മോഡൽ ലഭ്യതയും പരിശോധിക്കുക.",
+        ) from exc
+    except httpx.HTTPError as exc:
+        print(f"CareLekha Malayalam TTS request failed: {type(exc).__name__}.")
+        raise HTTPException(
+            status_code=502,
+            detail="മലയാളം ശബ്ദ സേവനവുമായി ബന്ധപ്പെടാനായില്ല.",
+        ) from exc
 
 
 @app.post("/extract-and-review")
