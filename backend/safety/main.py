@@ -66,7 +66,7 @@ class ReminderMedicine(BaseModel):
 
 class WhatsAppReminderSlot(BaseModel):
     slot: Literal["morning", "afternoon", "evening", "night"]
-    send_time: str = Field(pattern=r"^(?:[01]\\d|2[0-3]):[0-5]\\d$")
+    send_time: str = Field(pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
     medicines: list[ReminderMedicine] = Field(min_length=1, max_length=20)
 
 
