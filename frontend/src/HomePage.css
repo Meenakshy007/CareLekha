@@ -1687,3 +1687,74 @@ a {
     width: 100%;
   }
 }
+
+
+/* Less clutter for caregiver-facing routine and optional catalogue detail */
+.cl-routine-identity-details,
+.cl-candidates-details {
+  margin: 10px 0 14px;
+  border: 1px solid var(--cl-border);
+  border-radius: 9px;
+  background: #fbfdfc;
+}
+
+.cl-routine-identity-details summary,
+.cl-candidates-details summary {
+  padding: 11px 13px;
+  color: var(--cl-green);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.7;
+  cursor: pointer;
+  list-style-position: inside;
+}
+
+.cl-routine-identity-details[open] > .cl-routine-form-grid {
+  padding: 0 12px 12px;
+}
+
+.cl-candidates-details > .cl-candidate-list,
+.cl-candidates-details > .cl-review-empty {
+  padding: 0 12px 12px;
+}
+
+.cl-routine-source-food {
+  align-self: center;
+  margin: 0;
+  color: #536477;
+  font-size: 12px;
+  line-height: 1.8;
+}
+
+.cl-routine-source-food strong {
+  color: #2d5142;
+}
+
+.cl-routine-confirm-note {
+  margin: 12px 0 0;
+  color: #536477;
+  font-size: 11px;
+  line-height: 1.8;
+}
+
+.cl-review-results .cl-review-heading h2,
+.cl-review-results .cl-review-heading p,
+.cl-review-results .cl-review-index,
+.cl-review-results .cl-review-pill,
+.cl-review-results .cl-review-status,
+.cl-review-results .cl-review-fields dt,
+.cl-review-results .cl-review-safety-message,
+.cl-review-results .cl-verification-check,
+.cl-review-results .cl-candidates-details {
+  font-family: 'Noto Sans Malayalam', 'Inter', sans-serif;
+}
+
+@media (max-width: 650px) {
+  .cl-routine-identity-details[open] > .cl-routine-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .cl-routine-source-food {
+    font-size: 11px;
+  }
+}
