@@ -1205,10 +1205,7 @@ export default function HomePage({
                                   });
                                   setScheduleDrafts((previous) => ({
                                     ...previous,
-                                    [index]: {
-                                      ...getScheduleDraft(index, medicine),
-                                      instructions_confirmed: false,
-                                    },
+                                    [index]: getScheduleDraft(index, medicine),
                                   }));
                                 }
                                 setAudioStatus("");
@@ -1285,7 +1282,7 @@ export default function HomePage({
                       <div className="cl-routine-medicine-title">
                         <div>
                           <span className="cl-review-index">മരുന്ന് {index + 1}</span>
-                          <h3>{medicine.medicine_name || "Name not readable"}</h3>
+                          <h3>{medicine.medicine_name || "പേര് വായിക്കാനായില്ല"}</h3>
                         </div>
                         <span className="cl-review-pill">പരിശോധന ആവശ്യമാണ്</span>
                       </div>
