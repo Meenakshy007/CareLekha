@@ -424,6 +424,18 @@ export default function HomePage({
       audioPlayerRef.current.pause();
       audioPlayerRef.current = null;
     }
+    Object.values(audioElementsRef.current).forEach((player) => {
+      if (player) {
+        player.pause();
+        player.currentTime = 0;
+      }
+    });
+    Object.values(audioSourcesRef.current).forEach((url) => URL.revokeObjectURL(url));
+    audioElementsRef.current = {};
+    audioSourcesRef.current = {};
+    setAudioSources({});
+    setAudioStatus("");
+    setSpeakingMedicineIndex(null);
 
     if (inputMode === "upload" && !uploadedFile) {
       setMessage("Please upload a prescription image first.");
