@@ -1,5 +1,6 @@
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from safety_engine import (
@@ -11,6 +12,21 @@ from safety_engine import (
 
 # 1. Define the app BEFORE using @app.get or @app.post
 app = FastAPI(title="CareLekha Safety API")
+
+# Allow the local CareLekha frontend to call the safety service directly.
+# Keep this list explicit rather than allowing arbitrary website origins.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:5174",
+        "http://127.0.0.1:5174",
+    ],
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["*"],
+)
 
 
 class MedicineRequest(BaseModel):
