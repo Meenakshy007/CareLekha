@@ -244,9 +244,16 @@ function HospitalDashboard({
   };
 
   const updateExtractedMedicine = (index, field, value) => {
-    setExtractedMedicines((previous) => previous.map((medicine, i) =>
-      i === index ? { ...medicine, [field]: value, uncertainty: "Edited; verify against original" } : medicine
-    ));
+    setExtractedMedicines((previous) => {
+      const updated = previous.map((medicine, i) =>
+        i === index ? { ...medicine, [field]: value, uncertainty: "Edited; verify against original" } : medicine
+      );
+      setTranslationText(updated.map((m) =>
+        [m.medicine_name, m.strength, m.original_dosage_notation || m.prescribed_dose, m.frequency, m.food_instruction, m.duration]
+          .filter(Boolean).join(" · ")
+      ).join("\\n"));
+      return updated;
+    });
     setReviewConfirmed(false);
     setTranslatedText("");
   };
