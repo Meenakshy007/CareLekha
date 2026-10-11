@@ -147,6 +147,9 @@ export default function HomePage({
   const [message, setMessage] = useState("");
   const [reviewResult, setReviewResult] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [reviewConfirmed, setReviewConfirmed] = useState({});
+  const [audioStatus, setAudioStatus] = useState("");
+  const [speakingMedicineIndex, setSpeakingMedicineIndex] = useState(null);
 
   const conversionTimer = useRef(null);
   const fileInputRef = useRef(null);
@@ -321,6 +324,9 @@ export default function HomePage({
     setUploadedFile(file);
     setInputMode("upload");
     setReviewResult(null);
+    setReviewConfirmed({});
+    setAudioStatus("");
+    setSpeakingMedicineIndex(null);
     setMessage("");
   }
 
@@ -331,6 +337,10 @@ export default function HomePage({
   async function handleContinue() {
     setMessage("");
     setReviewResult(null);
+    setReviewConfirmed({});
+    setAudioStatus("");
+    setSpeakingMedicineIndex(null);
+    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
 
     if (inputMode === "upload" && !uploadedFile) {
       setMessage("Please upload a prescription image first.");
@@ -386,6 +396,76 @@ export default function HomePage({
   }
 
   /*
+    Speak only OCR fields that the user has compared with the original image.
+    This confirms transcription review, not clinical approval.
+  */
+  function speakMedicineAudio(medicine, index) {
+    if (!reviewConfirmed[index]) {
+      setAudioStatus("Please compare this medicine's extracted details with the original prescription first.");
+      return;
+    }
+
+    if (!("speechSynthesis" in window) || !("SpeechSynthesisUtterance" in window)) {
+      setAudioStatus("Audio playback is not supported by this browser. Try a recent version of Chrome or Edge.");
+      return;
+    }
+
+    const fields = [
+      ["മരുന്നിന്റെ പേര്", medicine.medicine_name],
+      ["ശക്തി", medicine.strength],
+      ["കുറിപ്പടിയിലെ ഡോസ് രേഖ", medicine.original_dosage_notation || medicine.prescribed_dose],
+      ["ആവൃത്തി", medicine.frequency],
+      ["ഭക്ഷണ നിർദ്ദേശം", medicine.food_instruction],
+      ["ചികിത്സാ കാലയളവ്", medicine.duration],
+    ].filter(([, value]) => value !== null && value !== undefined && String(value).trim() !== "");
+
+    const spokenText = [
+      "ശ്രദ്ധിക്കുക. ഇത് കുറിപ്പടിയിൽ നിന്ന് വായിച്ചെടുത്ത വിവരങ്ങളാണ്. ഇത് ഡോക്ടറുടെ ചികിത്സാ അനുമതിയല്ല.",
+      ...fields.map(([label, value]) => `${label}: ${value}.`),
+      "വ്യക്തമല്ലാത്ത വിവരങ്ങൾ ഊഹിച്ചിട്ടില്ല. മരുന്നിന്റെ ഉപയോഗത്തെക്കുറിച്ച് സംശയമുണ്ടെങ്കിൽ ഡോക്ടറെയോ ഫാർമസിസ്റ്റിനെയോ സമീപിക്കുക."
+    ].join(" ");
+
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(spokenText);
+    utterance.lang = "ml-IN";
+    utterance.rate = 0.88;
+    utterance.pitch = 1;
+
+    const voices = window.speechSynthesis.getVoices();
+    const malayalamVoice = voices.find((voice) => /^ml([_-]|$)/i.test(voice.lang));
+    if (malayalamVoice) utterance.voice = malayalamVoice;
+
+    utterance.onstart = () => {
+      setSpeakingMedicineIndex(index);
+      setAudioStatus(
+        malayalamVoice
+          ? "Malayalam audio guide is playing."
+          : "Audio requested in Malayalam. If pronunciation is unclear, install or select a Malayalam text-to-speech voice on this device."
+      );
+    };
+    utterance.onend = () => {
+      setSpeakingMedicineIndex(null);
+    };
+    utterance.onerror = () => {
+      setSpeakingMedicineIndex(null);
+      setAudioStatus("Audio could not be played. Check that your browser or device supports Malayalam speech.");
+    };
+
+    setAudioStatus("Starting Malayalam audio guide...");
+    window.speechSynthesis.speak(utterance);
+  }
+
+  function stopMedicineAudio() {
+    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+    setSpeakingMedicineIndex(null);
+    setAudioStatus("Audio stopped.");
+  }
+
+  useEffect(() => () => {
+    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+  }, []);
+
+  /*
     Handle workflow navigation.
   */
   function handleStepClick(index) {
@@ -413,15 +493,16 @@ export default function HomePage({
       return;
     }
 
-    if (
-      index === 2 &&
-      !uploadedFile &&
-      !manualText.trim()
-    ) {
-      setMessage(
-        "Enter prescription text or select a prescription file first."
-      );
+    if (index === 2 || index === 4) {
+      if (!reviewResult) {
+        setMessage("Upload and analyze a prescription first. The review and audio guide will appear with the results.");
+        return;
+      }
 
+      setActiveStep(index);
+      document
+        .getElementById("audio-guide")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
       return;
     }
 
@@ -429,7 +510,6 @@ export default function HomePage({
       setMessage(
         "This step will become available after prescription processing is connected."
       );
-
       return;
     }
 
@@ -884,7 +964,7 @@ export default function HomePage({
           )}
 
           {reviewResult && (
-            <section className="cl-review-results" aria-live="polite">
+            <section className="cl-review-results" id="audio-guide" aria-live="polite">
               <div className="cl-review-heading">
                 <div>
                   <span className="cl-review-eyebrow">REVIEW REQUIRED</span>
@@ -917,6 +997,46 @@ export default function HomePage({
                           <div><dt>OCR uncertainty</dt><dd>{medicine.uncertainty || "Review required"}</dd></div>
                         </dl>
                         <p className="cl-review-safety-message"><ShieldCheck size={16} />{identity.message || "This information has not been clinically verified."}</p>
+                        <div className="cl-audio-review-gate">
+                          <label>
+                            <input
+                              type="checkbox"
+                              checked={Boolean(reviewConfirmed[index])}
+                              onChange={(event) => {
+                                setReviewConfirmed((previous) => ({
+                                  ...previous,
+                                  [index]: event.target.checked,
+                                }));
+                                if (!event.target.checked && speakingMedicineIndex === index) {
+                                  stopMedicineAudio();
+                                }
+                                setAudioStatus("");
+                              }}
+                            />
+                            <span>ഞാൻ ഈ വിവരങ്ങൾ യഥാർത്ഥ കുറിപ്പടിയുമായി താരതമ്യം ചെയ്തു (I compared these extracted fields with the original prescription).</span>
+                          </label>
+                          <div className="cl-audio-actions">
+                            <button
+                              type="button"
+                              className="cl-audio-button"
+                              onClick={() => speakMedicineAudio(medicine, index)}
+                              disabled={!reviewConfirmed[index]}
+                            >
+                              <Volume2 size={16} />
+                              {speakingMedicineIndex === index ? "ഓഡിയോ പ്ലേ ചെയ്യുന്നു…" : "മലയാളം ഓഡിയോ കേൾക്കുക"}
+                            </button>
+                            {speakingMedicineIndex === index && (
+                              <button
+                                type="button"
+                                className="cl-audio-stop-button"
+                                onClick={stopMedicineAudio}
+                              >
+                                നിർത്തുക
+                              </button>
+                            )}
+                          </div>
+                          <small>Audio reads only the extracted fields shown above. This review does not confirm that the medicine or treatment is clinically appropriate.</small>
+                        </div>
                         <div className="cl-candidates-heading">
                           <strong>Possible catalogue matches</strong><span>{candidates.length} candidates</span>
                         </div>
@@ -939,6 +1059,9 @@ export default function HomePage({
                   })}
                 </div>
               ) : <p className="cl-review-empty">No medicines were extracted. Check image quality and request professional review.</p>}
+              {audioStatus && (
+                <p className="cl-audio-status" role="status" aria-live="polite">{audioStatus}</p>
+              )}
             </section>
           )}
 

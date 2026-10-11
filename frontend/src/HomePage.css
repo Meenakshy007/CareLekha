@@ -1227,3 +1227,95 @@ a {
 .cl-review-empty{color:var(--cl-muted);font-size:12px;line-height:1.7}
 .cl-primary-button:disabled{opacity:.65;cursor:wait;transform:none}
 @media(max-width:650px){.cl-review-results{padding:14px}.cl-review-heading,.cl-review-medicine-top,.cl-candidate-title{flex-direction:column}.cl-review-heading h2{font-size:19px}.cl-review-fields{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+
+/* MALAYALAM AUDIO GUIDE */
+.cl-audio-review-gate {
+  display: grid;
+  gap: 12px;
+  margin: 14px 0 18px;
+  padding: 14px;
+  border: 1px solid #cde8da;
+  border-radius: 12px;
+  background: #f5fcf8;
+}
+
+.cl-audio-review-gate > label {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: #38564a;
+  font-size: 12px;
+  line-height: 1.7;
+  cursor: pointer;
+}
+
+.cl-audio-review-gate input[type="checkbox"] {
+  width: 17px;
+  height: 17px;
+  flex-shrink: 0;
+  margin-top: 3px;
+  accent-color: var(--cl-green);
+}
+
+.cl-audio-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 9px;
+}
+
+.cl-audio-button,
+.cl-audio-stop-button {
+  min-height: 38px;
+  padding: 9px 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid #0b815d;
+  border-radius: 9px;
+  background: #087f5b;
+  color: white;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cl-audio-button:hover:not(:disabled) {
+  background: #066747;
+}
+
+.cl-audio-button:disabled {
+  border-color: #d6e1dc;
+  background: #e9efec;
+  color: #8a9b92;
+  cursor: not-allowed;
+}
+
+.cl-audio-stop-button {
+  border-color: #efcaca;
+  background: #fff4f4;
+  color: #9f3030;
+}
+
+.cl-audio-stop-button:hover {
+  background: #ffe7e7;
+}
+
+.cl-audio-review-gate > small {
+  color: #738295;
+  font-size: 11px;
+  line-height: 1.7;
+}
+
+.cl-audio-status {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border: 1px solid #cde8da;
+  border-radius: 9px;
+  background: #f5fcf8;
+  color: #27684e;
+  font-size: 12px;
+  line-height: 1.7;
+}
