@@ -150,6 +150,10 @@ export default function HomePage({
   const [reviewConfirmed, setReviewConfirmed] = useState({});
   const [audioStatus, setAudioStatus] = useState("");
   const [speakingMedicineIndex, setSpeakingMedicineIndex] = useState(null);
+  const [scheduleDrafts, setScheduleDrafts] = useState({});
+  const [scheduleResults, setScheduleResults] = useState({});
+  const [scheduleLoading, setScheduleLoading] = useState({});
+  const [scheduleErrors, setScheduleErrors] = useState({});
 
   const conversionTimer = useRef(null);
   const fileInputRef = useRef(null);
@@ -327,6 +331,10 @@ export default function HomePage({
     setReviewConfirmed({});
     setAudioStatus("");
     setSpeakingMedicineIndex(null);
+    setScheduleDrafts({});
+    setScheduleResults({});
+    setScheduleLoading({});
+    setScheduleErrors({});
     setMessage("");
   }
 
@@ -340,6 +348,10 @@ export default function HomePage({
     setReviewConfirmed({});
     setAudioStatus("");
     setSpeakingMedicineIndex(null);
+    setScheduleDrafts({});
+    setScheduleResults({});
+    setScheduleLoading({});
+    setScheduleErrors({});
     if ("speechSynthesis" in window) window.speechSynthesis.cancel();
 
     if (inputMode === "upload" && !uploadedFile) {
@@ -465,6 +477,117 @@ export default function HomePage({
     if ("speechSynthesis" in window) window.speechSynthesis.cancel();
   }, []);
 
+  function getScheduleDraft(index, medicine) {
+    return scheduleDrafts[index] || {
+      medicine_name: medicine?.medicine_name || "",
+      strength: medicine?.strength || "",
+      dose: "",
+      confirmed_times: [],
+      food_instruction: "",
+      instructions_confirmed: false,
+    };
+  }
+
+  function updateScheduleDraft(index, patch) {
+    const changesConfirmation = !Object.prototype.hasOwnProperty.call(patch, "instructions_confirmed");
+    setScheduleDrafts((previous) => {
+      const medicine = reviewResult?.medicines?.[index]?.extracted_medicine;
+      const current = previous[index] || {
+        medicine_name: medicine?.medicine_name || "",
+        strength: medicine?.strength || "",
+        dose: "",
+        confirmed_times: [],
+        food_instruction: "",
+        instructions_confirmed: false,
+      };
+      const updated = { ...current, ...patch };
+      if (changesConfirmation) updated.instructions_confirmed = false;
+      return { ...previous, [index]: updated };
+    });
+    setScheduleResults((previous) => {
+      const next = { ...previous };
+      delete next[index];
+      return next;
+    });
+    setScheduleErrors((previous) => ({ ...previous, [index]: "" }));
+  }
+
+  async function submitDailyRoutine(entry, index) {
+    const medicine = entry?.extracted_medicine || {};
+    const draft = getScheduleDraft(index, medicine);
+    setScheduleErrors((previous) => ({ ...previous, [index]: "" }));
+
+    if (!reviewConfirmed[index]) {
+      setScheduleErrors((previous) => ({
+        ...previous,
+        [index]: "First compare the medicine details above with the original prescription.",
+      }));
+      return;
+    }
+
+    if (!draft.medicine_name.trim() || !draft.strength.trim() || !draft.dose.trim()) {
+      setScheduleErrors((previous) => ({
+        ...previous,
+        [index]: "Enter the medicine name, strength, and dose exactly as confirmed from the written instructions.",
+      }));
+      return;
+    }
+
+    if (!draft.confirmed_times.length) {
+      setScheduleErrors((previous) => ({
+        ...previous,
+        [index]: "Select at least one time only if it was explicitly confirmed by the doctor or pharmacist.",
+      }));
+      return;
+    }
+
+    if (!draft.instructions_confirmed) {
+      setScheduleErrors((previous) => ({
+        ...previous,
+        [index]: "Confirm that the dose and each selected time match explicit written or professionally confirmed instructions.",
+      }));
+      return;
+    }
+
+    setScheduleLoading((previous) => ({ ...previous, [index]: true }));
+    try {
+      const response = await fetch(`${API_BASE_URL}/schedule`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          medicine_name: draft.medicine_name.trim(),
+          strength: draft.strength.trim(),
+          dose: draft.dose.trim(),
+          confirmed_times: draft.confirmed_times,
+          instructions_confirmed: true,
+          confirmed_food_instruction: draft.food_instruction.trim() || null,
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.detail || `Could not build routine (HTTP ${response.status}).`);
+      }
+
+      setScheduleResults((previous) => ({ ...previous, [index]: payload }));
+      if (payload.status !== "ready_for_display") {
+        setScheduleErrors((previous) => ({
+          ...previous,
+          [index]: payload.message || "This routine needs further review.",
+        }));
+      }
+    } catch (error) {
+      setScheduleErrors((previous) => ({
+        ...previous,
+        [index]: error instanceof TypeError
+          ? "Could not reach the schedule service. Confirm the OCR API and safety API are running."
+          : error.message || "Could not build this routine.",
+      }));
+    } finally {
+      setScheduleLoading((previous) => ({ ...previous, [index]: false }));
+    }
+  }
+
+
   /*
     Handle workflow navigation.
   */
@@ -502,6 +625,19 @@ export default function HomePage({
       setActiveStep(index);
       document
         .getElementById("audio-guide")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+
+    if (index === 3) {
+      if (!reviewResult || !Array.isArray(reviewResult.medicines) || reviewResult.medicines.length === 0) {
+        setMessage("Analyze a prescription with readable medicine entries first. A routine cannot be built when no medicines were extracted.");
+        return;
+      }
+
+      setActiveStep(3);
+      document
+        .getElementById("daily-routine")
         ?.scrollIntoView({ behavior: "smooth", block: "start" });
       return;
     }
@@ -1010,6 +1146,20 @@ export default function HomePage({
                                 if (!event.target.checked && speakingMedicineIndex === index) {
                                   stopMedicineAudio();
                                 }
+                                if (!event.target.checked) {
+                                  setScheduleResults((previous) => {
+                                    const next = { ...previous };
+                                    delete next[index];
+                                    return next;
+                                  });
+                                  setScheduleDrafts((previous) => ({
+                                    ...previous,
+                                    [index]: {
+                                      ...getScheduleDraft(index, medicine),
+                                      instructions_confirmed: false,
+                                    },
+                                  }));
+                                }
                                 setAudioStatus("");
                               }}
                             />
@@ -1062,6 +1212,151 @@ export default function HomePage({
               {audioStatus && (
                 <p className="cl-audio-status" role="status" aria-live="polite">{audioStatus}</p>
               )}
+            </section>
+          )}
+
+          {reviewResult && Array.isArray(reviewResult.medicines) && reviewResult.medicines.length > 0 && (
+            <section className="cl-daily-routine" id="daily-routine" aria-live="polite">
+              <div className="cl-routine-heading">
+                <span className="cl-review-eyebrow">STEP 4 · DAILY ROUTINE</span>
+                <h2>ദൈനംദിന മരുന്ന് ക്രമം</h2>
+                <p>Build a display routine only from explicitly confirmed instructions. CareLekha will not convert shorthand such as 1-0-1 into times.</p>
+              </div>
+
+              <div className="cl-routine-warning">
+                <ShieldCheck size={17} />
+                <span>Choose morning, afternoon, evening, or night only when the written instructions or a qualified healthcare professional explicitly confirm that timing. This routine organizes inputs; it does not decide what you should take.</span>
+              </div>
+
+              <div className="cl-routine-list">
+                {reviewResult.medicines.map((entry, index) => {
+                  const medicine = entry.extracted_medicine || {};
+                  const draft = getScheduleDraft(index, medicine);
+                  const result = scheduleResults[index];
+                  const times = [
+                    { value: "morning", label: "രാവിലെ", en: "Morning" },
+                    { value: "afternoon", label: "ഉച്ചയ്ക്ക്", en: "Afternoon" },
+                    { value: "evening", label: "വൈകുന്നേരം", en: "Evening" },
+                    { value: "night", label: "രാത്രി", en: "Night" },
+                  ];
+
+                  return (
+                    <article className="cl-routine-medicine" key={`routine-${medicine.medicine_name || "medicine"}-${index}`}>
+                      <div className="cl-routine-medicine-title">
+                        <div>
+                          <span className="cl-review-index">MEDICINE {index + 1}</span>
+                          <h3>{medicine.medicine_name || "Name not readable"}</h3>
+                        </div>
+                        <span className="cl-review-pill">Review required</span>
+                      </div>
+
+                      <div className="cl-routine-form-grid">
+                        <label>
+                          <span>Medicine name (confirm / correct)</span>
+                          <input
+                            type="text"
+                            value={draft.medicine_name}
+                            onChange={(event) => updateScheduleDraft(index, { medicine_name: event.target.value })}
+                            autoComplete="off"
+                          />
+                        </label>
+                        <label>
+                          <span>Strength (confirm / correct)</span>
+                          <input
+                            type="text"
+                            value={draft.strength}
+                            onChange={(event) => updateScheduleDraft(index, { strength: event.target.value })}
+                            placeholder="As written, e.g. 500 mg"
+                            autoComplete="off"
+                          />
+                        </label>
+                        <label>
+                          <span>Dose exactly as confirmed</span>
+                          <input
+                            type="text"
+                            value={draft.dose}
+                            onChange={(event) => updateScheduleDraft(index, { dose: event.target.value })}
+                            placeholder="Enter confirmed dose; not inferred"
+                            autoComplete="off"
+                          />
+                        </label>
+                        <label>
+                          <span>Food instruction (optional)</span>
+                          <input
+                            type="text"
+                            value={draft.food_instruction}
+                            onChange={(event) => updateScheduleDraft(index, { food_instruction: event.target.value })}
+                            placeholder="Only if explicitly confirmed"
+                            autoComplete="off"
+                          />
+                        </label>
+                      </div>
+
+                      <fieldset className="cl-routine-times">
+                        <legend>Explicitly confirmed time(s)</legend>
+                        <div className="cl-routine-time-options">
+                          {times.map((time) => (
+                            <label key={time.value}>
+                              <input
+                                type="checkbox"
+                                checked={draft.confirmed_times.includes(time.value)}
+                                onChange={(event) => {
+                                  const nextTimes = event.target.checked
+                                    ? [...draft.confirmed_times, time.value]
+                                    : draft.confirmed_times.filter((value) => value !== time.value);
+                                  updateScheduleDraft(index, { confirmed_times: nextTimes });
+                                }}
+                              />
+                              <span>{time.label}<small>{time.en}</small></span>
+                            </label>
+                          ))}
+                        </div>
+                        <p>Do not select times just because the prescription says 1-0-1 or “twice daily”. Confirm actual times separately.</p>
+                      </fieldset>
+
+                      <label className="cl-routine-confirm">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(draft.instructions_confirmed)}
+                          onChange={(event) => updateScheduleDraft(index, { instructions_confirmed: event.target.checked })}
+                        />
+                        <span>I confirm that the medicine identity, strength, dose, selected times, and any food instruction entered above match the original written instructions or have been explicitly confirmed by a qualified healthcare professional. This confirms the source information, not medical approval.</span>
+                      </label>
+
+                      <div className="cl-routine-actions">
+                        <button
+                          type="button"
+                          className="cl-routine-submit"
+                          onClick={() => submitDailyRoutine(entry, index)}
+                          disabled={Boolean(scheduleLoading[index])}
+                        >
+                          <CalendarDays size={16} />
+                          {scheduleLoading[index] ? "Preparing routine…" : "Build daily routine"}
+                        </button>
+                        {result?.status === "ready_for_display" && (
+                          <span className="cl-routine-ready">Routine entries created from confirmed inputs</span>
+                        )}
+                      </div>
+
+                      {scheduleErrors[index] && <p className="cl-routine-error" role="alert">{scheduleErrors[index]}</p>}
+
+                      {result?.status === "ready_for_display" && Array.isArray(result.schedule) && (
+                        <div className="cl-routine-output">
+                          <h4>Daily routine entries</h4>
+                          {result.schedule.map((item, itemIndex) => (
+                            <div className="cl-routine-output-row" key={`routine-row-${item.time}-${itemIndex}`}>
+                              <strong>{({ morning: "രാവിലെ · Morning", afternoon: "ഉച്ചയ്ക്ക് · Afternoon", evening: "വൈകുന്നേരം · Evening", night: "രാത്രി · Night" })[item.time] || item.time}</strong>
+                              <span>{item.medicine_name} · {item.strength} · {item.dose}</span>
+                              {item.instruction && <small>Food instruction: {item.instruction}</small>}
+                            </div>
+                          ))}
+                          <p>This is a display aid made from confirmed inputs, not a prescription, clinical approval, or reminder system.</p>
+                        </div>
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
             </section>
           )}
 

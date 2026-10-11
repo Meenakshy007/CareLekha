@@ -46,6 +46,15 @@ class PrescriptionResult(BaseModel):
     medicines: list[Medicine]
     needs_human_review: bool = True
 
+class ScheduleProxyRequest(BaseModel):
+    """Explicitly confirmed schedule inputs forwarded to the safety API."""
+    medicine_name: str
+    strength: str
+    dose: str
+    confirmed_times: list[str]
+    instructions_confirmed: bool
+    confirmed_food_instruction: Optional[str] = None
+
 
 def flag_missing_identity_fields(medicine: Medicine) -> Medicine:
     """Flag incomplete identities for human review, not validate OCR correctness."""
@@ -207,3 +216,29 @@ async def extract_and_review(file: UploadFile = File(...)):
         "needs_human_review": True,
         "message": "ML matches are suggestions only. Review all extracted details against the original prescription; do not infer missing doses or timings.",
     }
+
+
+@app.post("/schedule")
+async def create_daily_schedule(request: ScheduleProxyRequest):
+    """
+    Forward explicitly confirmed schedule inputs to the safety API.
+    The returned routine is an organizer, not clinical approval.
+    """
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as http:
+            response = await http.post(
+                f"{SAFETY_API_URL}/schedule",
+                json=request.model_dump(),
+            )
+            response.raise_for_status()
+            return response.json()
+    except httpx.HTTPStatusError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail="The safety schedule service rejected the request. Check the confirmed fields and try again.",
+        ) from exc
+    except httpx.HTTPError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail="The safety schedule service is unavailable. No routine was created.",
+        ) from exc
