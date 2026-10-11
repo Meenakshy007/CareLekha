@@ -89,6 +89,19 @@ function getOneZeroOnePlan(medicine) {
 }
 
 /*
+  Clean a tablet-form prefix for display only. The original extracted value stays
+  in reviewResult so it can still be compared against the uploaded prescription.
+*/
+function getMedicineDisplay(medicineName) {
+  const original = String(medicineName ?? "").trim();
+  const tabletPrefix = original.match(/^(?:tab(?:let)?\.?)\s+(.+)$/i);
+  if (tabletPrefix) {
+    return { name: tabletPrefix[1].trim(), dosageForm: "Tablet (ഗുളിക)" };
+  }
+  return { name: original, dosageForm: "" };
+}
+
+/*
   Translate only a small set of unambiguous common phrases for speech.
   Drug names, strengths and dose notation remain exactly as extracted.
 */
@@ -549,8 +562,10 @@ export default function HomePage({
         .map((item) => timeLabels[item.time] || "")
         .filter(Boolean)
         .join(", ");
+      const medicineDisplay = getMedicineDisplay(first.medicine_name || medicine.medicine_name);
       fields = [
-        ["മരുന്നിന്റെ പേര്", first.medicine_name],
+        ["മരുന്നിന്റെ പേര്", medicineDisplay.name],
+        ["മരുന്നിന്റെ രൂപം", medicineDisplay.dosageForm],
         ["ശക്തി", first.strength],
         ["ഡോസ്", first.dose],
         ["സ്ഥിരീകരിച്ച സമയം", confirmedTimes],
@@ -559,8 +574,10 @@ export default function HomePage({
       ];
       intro = "ശ്രദ്ധിക്കുക. ഇത് നിങ്ങൾ പരിശോധിച്ച് സ്ഥിരീകരിച്ച ദൈനംദിന ക്രമമാണ്. ചികിത്സാ നിർദ്ദേശത്തിന് പകരമല്ല.";
     } else {
+      const medicineDisplay = getMedicineDisplay(medicine.medicine_name);
       fields = [
-        ["മരുന്നിന്റെ പേര്", medicine.medicine_name],
+        ["മരുന്നിന്റെ പേര്", medicineDisplay.name],
+        ["മരുന്നിന്റെ രൂപം", medicineDisplay.dosageForm],
         ["ശക്തി", medicine.strength],
         ["കുറിപ്പടിയിലെ ഡോസ് രേഖ", medicine.original_dosage_notation || medicine.prescribed_dose],
         ["ആവൃത്തി", medicine.frequency],
@@ -692,7 +709,7 @@ export default function HomePage({
   function getScheduleDraft(index, medicine) {
     const shorthand = getOneZeroOnePlan(medicine);
     return scheduleDrafts[index] || {
-      medicine_name: medicine?.medicine_name || "",
+      medicine_name: getMedicineDisplay(medicine?.medicine_name).name || "",
       strength: medicine?.strength || "",
       dose: getRoutineDose(medicine),
       confirmed_times: shorthand ? shorthand.times : [],
@@ -703,7 +720,7 @@ export default function HomePage({
     setScheduleDrafts((previous) => {
       const medicine = reviewResult?.medicines?.[index]?.extracted_medicine;
       const current = previous[index] || {
-        medicine_name: medicine?.medicine_name || "",
+        medicine_name: getMedicineDisplay(medicine?.medicine_name).name || "",
         strength: medicine?.strength || "",
         dose: getRoutineDose(medicine),
         confirmed_times: getOneZeroOnePlan(medicine)?.times || [],
@@ -1438,6 +1455,7 @@ export default function HomePage({
                 <div className="cl-review-list">
                   {reviewResult.medicines.map((entry, index) => {
                     const medicine = entry.extracted_medicine || {};
+                    const medicineDisplay = getMedicineDisplay(medicine.medicine_name);
                     const identity = entry.identity_check || {};
                     const candidates = entry.ml_candidates?.candidates || [];
                     return (
@@ -1445,11 +1463,12 @@ export default function HomePage({
                         <div className="cl-review-medicine-top">
                           <div>
                             <span className="cl-review-index">മരുന്ന് {index + 1}</span>
-                            <h3>{medicine.medicine_name || "പേര് വായിക്കാനായില്ല"}</h3>
+                            <h3>{medicineDisplay.name || "പേര് വായിക്കാനായില്ല"}</h3>
                           </div>
                           <span className="cl-review-pill">പരിശോധന ആവശ്യമാണ്</span>
                         </div>
                         <dl className="cl-review-fields">
+                          {medicineDisplay.dosageForm && <div><dt>മരുന്നിന്റെ രൂപം</dt><dd>{medicineDisplay.dosageForm}</dd></div>}
                           <div><dt>ശക്തി</dt><dd>{medicine.strength || "വായിക്കാനായില്ല"}</dd></div>
                           <div><dt>കുറിപ്പടിയിലെ ഡോസ് രേഖ</dt><dd>{medicine.original_dosage_notation || medicine.prescribed_dose || "വായിക്കാനായില്ല"}</dd></div>
                           <div><dt>ആവൃത്തി</dt><dd>{medicine.frequency ? valueForMalayalamSpeech("ആവൃത്തി", medicine.frequency) : "വായിക്കാനായില്ല"}</dd></div>
@@ -1549,6 +1568,7 @@ export default function HomePage({
                     ? routineResult.schedule
                     : [];
                   const first = schedule[0];
+                  const medicineDisplay = getMedicineDisplay(first?.medicine_name || medicine.medicine_name);
                   const timeLabels = {
                     morning: "രാവിലെ",
                     afternoon: "ഉച്ചയ്ക്ക്",
@@ -1562,13 +1582,14 @@ export default function HomePage({
                       <div className="cl-routine-medicine-title">
                         <div>
                           <span className="cl-review-index">മരുന്ന് {index + 1}</span>
-                          <h3>{first?.medicine_name || medicine.medicine_name || "പേര് വായിക്കാനായില്ല"}</h3>
+                          <h3>{medicineDisplay.name || "പേര് വായിക്കാനായില്ല"}</h3>
                         </div>
                         <span className="cl-review-pill">{schedule.length ? "ക്രമം തയ്യാറായി" : "ക്രമം തയ്യാറാക്കണം"}</span>
                       </div>
 
                       {first ? (
                         <dl className="cl-review-fields">
+                          {medicineDisplay.dosageForm && <div><dt>മരുന്നിന്റെ രൂപം</dt><dd>{medicineDisplay.dosageForm}</dd></div>}
                           <div><dt>ശക്തി</dt><dd>{first.strength}</dd></div>
                           <div><dt>ഡോസ്</dt><dd>{first.dose}</dd></div>
                           <div><dt>സ്ഥിരീകരിച്ച സമയം</dt><dd>{times}</dd></div>
@@ -1578,6 +1599,7 @@ export default function HomePage({
                       ) : (
                         <>
                           <dl className="cl-review-fields">
+                            {medicineDisplay.dosageForm && <div><dt>മരുന്നിന്റെ രൂപം</dt><dd>{medicineDisplay.dosageForm}</dd></div>}
                             <div><dt>ശക്തി</dt><dd>{medicine.strength || "വായിക്കാനായില്ല"}</dd></div>
                             <div><dt>കുറിപ്പടിയിലെ ഡോസ് രേഖ</dt><dd>{medicine.original_dosage_notation || medicine.prescribed_dose || "വായിക്കാനായില്ല"}</dd></div>
                             <div><dt>ആവൃത്തി</dt><dd>{medicine.frequency ? valueForMalayalamSpeech("ആവൃത്തി", medicine.frequency) : "വായിക്കാനായില്ല"}</dd></div>
@@ -1666,6 +1688,7 @@ export default function HomePage({
               <div className="cl-routine-list">
                 {reviewResult.medicines.map((entry, index) => {
                   const medicine = entry.extracted_medicine || {};
+                  const medicineDisplay = getMedicineDisplay(medicine.medicine_name);
                   const draft = getScheduleDraft(index, medicine);
                   const result = scheduleResults[index];
                   const shorthand = getOneZeroOnePlan(medicine);
@@ -1681,8 +1704,11 @@ export default function HomePage({
                       <div className="cl-routine-medicine-title">
                         <div>
                           <span className="cl-review-index">മരുന്ന് {index + 1}</span>
-                          <h3>{medicine.medicine_name || "പേര് വായിക്കാനായില്ല"}</h3>
-                          <p className="cl-routine-medicine-meta">ശക്തി: {medicine.strength || "വായിക്കാനായില്ല"}</p>
+                          <h3>{medicineDisplay.name || "പേര് വായിക്കാനായില്ല"}</h3>
+                          <p className="cl-routine-medicine-meta">
+                            {medicineDisplay.dosageForm && <>മരുന്നിന്റെ രൂപം: {medicineDisplay.dosageForm} · </>}
+                            ശക്തി: {medicine.strength || "വായിക്കാനായില്ല"}
+                          </p>
                         </div>
                         <span className="cl-review-pill">{reviewConfirmed[index] ? "വിവരങ്ങൾ പരിശോധിച്ചു" : "പരിശോധന ആവശ്യമാണ്"}</span>
                       </div>
@@ -1784,7 +1810,7 @@ export default function HomePage({
                           {result.schedule.map((item, itemIndex) => (
                             <div className="cl-routine-output-row" key={`routine-row-${item.time}-${itemIndex}`}>
                               <strong>{({ morning: "രാവിലെ", afternoon: "ഉച്ചയ്ക്ക്", evening: "വൈകുന്നേരം", night: "രാത്രി" })[item.time] || item.time}</strong>
-                              <span>{item.medicine_name} · {item.strength} · {item.dose}</span>
+                              <span>{getMedicineDisplay(item.medicine_name).name}{getMedicineDisplay(item.medicine_name).dosageForm ? ` · ${getMedicineDisplay(item.medicine_name).dosageForm}` : ""} · {item.strength} · {item.dose}</span>
                               {item.instruction && <small>ഭക്ഷണ നിർദ്ദേശം: {item.instruction}</small>}
                             </div>
                           ))}
@@ -1817,7 +1843,8 @@ export default function HomePage({
                           <div className="cl-complete-routine-items">
                             {group.items.map((item, itemIndex) => (
                               <div className="cl-complete-routine-item" key={`all-${group.slot}-${item.sourceIndex}-${itemIndex}`}>
-                                <strong>{item.medicine_name}</strong>
+                                <strong>{getMedicineDisplay(item.medicine_name).name}</strong>
+                                {getMedicineDisplay(item.medicine_name).dosageForm && <small>മരുന്നിന്റെ രൂപം: {getMedicineDisplay(item.medicine_name).dosageForm}</small>}
                                 <span>{item.strength} · {item.dose}</span>
                                 {item.instruction && (
                                   <small>ഭക്ഷണ നിർദ്ദേശം: {valueForMalayalamSpeech("ഭക്ഷണ നിർദ്ദേശം", item.instruction)}</small>
