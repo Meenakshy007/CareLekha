@@ -205,6 +205,7 @@ export default function HomePage({
   const conversionTimer = useRef(null);
   const fileInputRef = useRef(null);
   const audioPlayerRef = useRef(null);
+  const audioElementsRef = useRef({});
   const audioSourcesRef = useRef({});
 
   useEffect(() => {
@@ -419,7 +420,10 @@ export default function HomePage({
     setScheduleResults({});
     setScheduleLoading({});
     setScheduleErrors({});
-    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+    if (audioPlayerRef.current) {
+      audioPlayerRef.current.pause();
+      audioPlayerRef.current = null;
+    }
 
     if (inputMode === "upload" && !uploadedFile) {
       setMessage("Please upload a prescription image first.");
@@ -609,6 +613,12 @@ export default function HomePage({
       audioPlayerRef.current.currentTime = 0;
       audioPlayerRef.current = null;
     }
+    Object.values(audioElementsRef.current).forEach((player) => {
+      if (player) {
+        player.pause();
+        player.currentTime = 0;
+      }
+    });
     setSpeakingMedicineIndex(null);
     setAudioStatus("ശബ്ദം നിർത്തി.");
   }
@@ -618,6 +628,8 @@ export default function HomePage({
       audioPlayerRef.current.pause();
       audioPlayerRef.current = null;
     }
+    Object.values(audioElementsRef.current).forEach((player) => player?.pause());
+    audioElementsRef.current = {};
     Object.values(audioSourcesRef.current).forEach((url) => URL.revokeObjectURL(url));
     audioSourcesRef.current = {};
   }, []);
@@ -1569,7 +1581,15 @@ export default function HomePage({
                           controls
                           preload="metadata"
                           src={audioSources[index]}
+                          ref={(element) => {
+                            if (element) audioElementsRef.current[index] = element;
+                            else delete audioElementsRef.current[index];
+                          }}
                           onPlay={() => {
+                            if (audioPlayerRef.current) {
+                              audioPlayerRef.current.pause();
+                              audioPlayerRef.current = null;
+                            }
                             setSpeakingMedicineIndex(index);
                             setAudioStatus("മലയാളം ശബ്ദസഹായി പ്ലേ ചെയ്യുന്നു.");
                           }}
