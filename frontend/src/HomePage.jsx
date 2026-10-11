@@ -36,12 +36,12 @@ const API_BASE_URL = import.meta.env.VITE_CARELEKHA_API_URL || "http://127.0.0.1
 const steps = [
   {
     label: "1. രോഗിയുടെ വിവരങ്ങൾ",
-    subtitle: "(Patient Details)",
+    subtitle: "രോഗിയുടെ വിവരങ്ങൾ നൽകുക",
     icon: UserRound,
   },
   {
     label: "2. കുറിപ്പടി നൽകുക",
-    subtitle: "(Upload Prescription)",
+    subtitle: "ഡോക്ടറുടെ കുറിപ്പടി നൽകുക",
     icon: FileText,
   },
   {
@@ -61,7 +61,7 @@ const steps = [
   },
   {
     label: "6. പ്രിന്റ് ചാർട്ട്",
-    subtitle: "(Wall Chart)",
+    subtitle: "അച്ചടിക്കാനുള്ള മരുന്ന് പട്ടിക",
     icon: Printer,
   },
 ];
@@ -1198,9 +1198,9 @@ export default function HomePage({
                         <dl className="cl-review-fields">
                           <div><dt>ശക്തി</dt><dd>{medicine.strength || "വായിക്കാനായില്ല"}</dd></div>
                           <div><dt>കുറിപ്പടിയിലെ ഡോസ് രേഖ</dt><dd>{medicine.original_dosage_notation || medicine.prescribed_dose || "വായിക്കാനായില്ല"}</dd></div>
-                          <div><dt>ആവൃത്തി</dt><dd>{medicine.frequency || "വായിക്കാനായില്ല"}</dd></div>
-                          <div><dt>ഭക്ഷണ നിർദ്ദേശം</dt><dd>{medicine.food_instruction || "വായിക്കാനായില്ല"}</dd></div>
-                          <div><dt>കാലയളവ്</dt><dd>{medicine.duration || "വായിക്കാനായില്ല"}</dd></div>
+                          <div><dt>ആവൃത്തി</dt><dd>{medicine.frequency ? valueForMalayalamSpeech("ആവൃത്തി", medicine.frequency) : "വായിക്കാനായില്ല"}</dd></div>
+                          <div><dt>ഭക്ഷണ നിർദ്ദേശം</dt><dd>{medicine.food_instruction ? valueForMalayalamSpeech("ഭക്ഷണ നിർദ്ദേശം", medicine.food_instruction) : "വായിക്കാനായില്ല"}</dd></div>
+                          <div><dt>കാലയളവ്</dt><dd>{medicine.duration ? valueForMalayalamSpeech("ചികിത്സാ കാലയളവ്", medicine.duration) : "വായിക്കാനായില്ല"}</dd></div>
                           <div><dt>വായനയിലെ വ്യക്തത</dt><dd>{medicine.uncertainty === "low" ? "കുറഞ്ഞ അനിശ്ചിതത്വം" : medicine.uncertainty === "none" ? "വ്യക്തമായ അനിശ്ചിതത്വം കണ്ടെത്തിയില്ല" : "പരിശോധന ആവശ്യമാണ്"}</dd></div>
                         </dl>
                         <p className="cl-review-safety-message"><ShieldCheck size={16} />{identity.status === "safety_service_unavailable" ? "സുരക്ഷാ സേവനം ലഭ്യമല്ല. ഈ മരുന്ന് സ്ഥിരീകരിച്ചിട്ടില്ല." : identity.status === "verified" ? "പരിശോധിച്ച രേഖയുമായി മരുന്നിന്റെ പേര് പൊരുത്തപ്പെട്ടു." : identity.status === "identity_match_unreviewed" ? "മരുന്നിന്റെ രേഖ കണ്ടെത്തി; എന്നാൽ വിദഗ്ധ പരിശോധന പൂർത്തിയായിട്ടില്ല." : identity.status === "awaiting_confirmation" ? "മരുന്നിന്റെ പേരും ശക്തിയും യഥാർത്ഥ കുറിപ്പടിയുമായി താരതമ്യം ചെയ്യുക." : "കൃത്യമായ പൊരുത്തം കണ്ടെത്തിയില്ല. ഫാർമസിസ്റ്റിന്റെ സഹായം തേടുക."}</p>
@@ -1327,7 +1327,7 @@ export default function HomePage({
                         </label>
                         <p className="cl-routine-source-food">
                           <strong>ഭക്ഷണ നിർദ്ദേശം:</strong>{" "}
-                          {medicine.food_instruction || "വായിച്ചെടുക്കാനായില്ല; ഊഹിച്ചിട്ടില്ല."}
+                          {medicine.food_instruction ? valueForMalayalamSpeech("ഭക്ഷണ നിർദ്ദേശം", medicine.food_instruction) : "വായിച്ചെടുക്കാനായില്ല; ഊഹിച്ചിട്ടില്ല."}
                         </p>
                       </div>
 
@@ -1449,7 +1449,7 @@ export default function HomePage({
                           <div><dt>ശക്തി</dt><dd>{first.strength}</dd></div>
                           <div><dt>ഡോസ്</dt><dd>{first.dose}</dd></div>
                           <div><dt>സ്ഥിരീകരിച്ച സമയം</dt><dd>{times}</dd></div>
-                          <div><dt>ഭക്ഷണ നിർദ്ദേശം</dt><dd>{first.instruction || "വ്യക്തമായി രേഖപ്പെടുത്തിയിട്ടില്ല"}</dd></div>
+                          <div><dt>ഭക്ഷണ നിർദ്ദേശം</dt><dd>{first.instruction ? valueForMalayalamSpeech("ഭക്ഷണ നിർദ്ദേശം", first.instruction) : "വ്യക്തമായി രേഖപ്പെടുത്തിയിട്ടില്ല"}</dd></div>
                           {medicine.duration && <div><dt>കാലയളവ്</dt><dd>{valueForMalayalamSpeech("ചികിത്സാ കാലയളവ്", medicine.duration)}</dd></div>}
                         </dl>
                       ) : (
