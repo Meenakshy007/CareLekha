@@ -1,0 +1,32 @@
+# Secrets and local environment files
+.env
+.env.*
+**/.env
+**/.env.*
+!.env.example
+!**/.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# JavaScript / Vite
+node_modules/
+**/node_modules/
+dist/
+dist-ssr/
+
+# Generated ML artifacts and local catalogue data
+backend/ml/artifacts/
+backend/ml/data/*.csv
+*.joblib
+*.pkl
+
+# Local editor and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
