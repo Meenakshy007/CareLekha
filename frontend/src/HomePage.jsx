@@ -202,6 +202,24 @@ export default function HomePage({
   const conversionTimer = useRef(null);
   const fileInputRef = useRef(null);
 
+  useEffect(() => {
+    const sectionByStep = {
+      2: "review-results",
+      3: "daily-routine",
+      4: "audio-guide",
+    };
+    const sectionId = sectionByStep[activeStep];
+    if (!sectionId || !reviewResult) return undefined;
+
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById(sectionId)?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [activeStep, reviewResult]);
+
   /*
     Automatically convert Manglish to Malayalam
     after the user stops typing for one second.
@@ -652,9 +670,6 @@ export default function HomePage({
       }
 
       setActiveStep(2);
-      document
-        .getElementById("review-results")
-        ?.scrollIntoView({ behavior: "smooth", block: "start" });
       return;
     }
 
@@ -665,9 +680,6 @@ export default function HomePage({
       }
 
       setActiveStep(3);
-      document
-        .getElementById("daily-routine")
-        ?.scrollIntoView({ behavior: "smooth", block: "start" });
       return;
     }
 
@@ -678,9 +690,6 @@ export default function HomePage({
       }
 
       setActiveStep(4);
-      document
-        .getElementById("audio-guide")
-        ?.scrollIntoView({ behavior: "smooth", block: "start" });
       return;
     }
 
@@ -1141,7 +1150,7 @@ export default function HomePage({
             </div>
           )}
 
-          {reviewResult && (
+          {reviewResult && activeStep === 2 && (
             <section className="cl-review-results" id="review-results" aria-live="polite">
               <div className="cl-review-heading">
                 <div>
@@ -1236,10 +1245,7 @@ export default function HomePage({
                   <button
                     type="button"
                     className="cl-routine-submit"
-                    onClick={() => {
-                      setActiveStep(3);
-                      document.getElementById("daily-routine")?.scrollIntoView({ behavior: "smooth", block: "start" });
-                    }}
+                    onClick={() => setActiveStep(3)}
                   >
                     അടുത്ത ഘട്ടം: ദൈനംദിന ക്രമം
                     <ChevronRight size={17} />
@@ -1249,7 +1255,7 @@ export default function HomePage({
             </section>
           )}
 
-          {reviewResult && Array.isArray(reviewResult.medicines) && reviewResult.medicines.length > 0 && (
+          {reviewResult && activeStep === 3 && Array.isArray(reviewResult.medicines) && reviewResult.medicines.length > 0 && (
             <section className="cl-daily-routine" id="daily-routine" aria-live="polite">
               <div className="cl-routine-heading">
                 <span className="cl-review-eyebrow">ഘട്ടം 4 · ദൈനംദിന ക്രമം</span>
@@ -1372,10 +1378,7 @@ export default function HomePage({
                 <button
                   type="button"
                   className="cl-routine-submit"
-                  onClick={() => {
-                    setActiveStep(4);
-                    document.getElementById("audio-guide")?.scrollIntoView({ behavior: "smooth", block: "start" });
-                  }}
+                  onClick={() => setActiveStep(4)}
                 >
                   അടുത്ത ഘട്ടം: മലയാളം ശബ്ദസഹായി
                   <Volume2 size={17} />
@@ -1385,7 +1388,7 @@ export default function HomePage({
           )}
 
           {/* ഘട്ടം 5: മലയാളം ശബ്ദസഹായി */}
-          {reviewResult && Array.isArray(reviewResult.medicines) && reviewResult.medicines.length > 0 && (
+          {reviewResult && activeStep === 4 && Array.isArray(reviewResult.medicines) && reviewResult.medicines.length > 0 && (
             <section className="cl-audio-guide-section" id="audio-guide" aria-live="polite">
               <div className="cl-routine-heading">
                 <span className="cl-review-eyebrow">ഘട്ടം 5 · മലയാളം ശബ്ദസഹായി</span>
