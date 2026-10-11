@@ -489,6 +489,7 @@ export default function HomePage({
   }
 
   function updateScheduleDraft(index, patch) {
+    const changesConfirmation = !Object.prototype.hasOwnProperty.call(patch, "instructions_confirmed");
     setScheduleDrafts((previous) => {
       const medicine = reviewResult?.medicines?.[index]?.extracted_medicine;
       const current = previous[index] || {
@@ -499,7 +500,9 @@ export default function HomePage({
         food_instruction: "",
         instructions_confirmed: false,
       };
-      return { ...previous, [index]: { ...current, ...patch } };
+      const updated = { ...current, ...patch };
+      if (changesConfirmation) updated.instructions_confirmed = false;
+      return { ...previous, [index]: updated };
     });
     setScheduleResults((previous) => {
       const next = { ...previous };
