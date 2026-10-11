@@ -2,9 +2,9 @@
 
 ## Base URL
 
-Local development: `http://127.0.0.1:8000`
+Local Safety API: `http://127.0.0.1:8003`
 
-Interactive API documentation: `http://127.0.0.1:8000/docs`
+Interactive Safety API documentation: `http://127.0.0.1:8003/docs`
 
 ## 1. Health / Home
 
@@ -80,3 +80,13 @@ Never infer medication times from shorthand such as `1-0-1`.
 - Do not treat caregiver confirmation as clinical verification.
 - Use synthetic data for development and testing.
 - Do not send identifiable patient information to unapproved services.
+
+## 5. Opt-in WhatsApp daily reminders
+
+**Configure first:** see [WHATSAPP_REMINDERS.md](./WHATSAPP_REMINDERS.md). Real messages require Meta WhatsApp Business Cloud API credentials and an approved Malayalam utility message template. The demo does not send WhatsApp messages until those settings are present.
+
+- `POST /reminders/whatsapp` schedules daily reminders for each confirmed time group, after explicit recipient consent.
+- `POST /reminders/whatsapp/disable` stops future reminders for a recipient.
+- Reminder times are actual clock times selected by the caregiver, interpreted in the supplied timezone (default `Asia/Kolkata`).
+
+A successful schedule response means the local reminder job was saved; it is not proof that WhatsApp delivered a message. Never infer times for a medicine from ambiguous instructions.
